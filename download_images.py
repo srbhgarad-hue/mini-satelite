@@ -3,28 +3,31 @@ import requests
 
 os.makedirs("data/raw", exist_ok=True)
 
-# Direct Working Satellite Image URLs (NASA / USGS / OpenStreetMap Tiles)
+# High-resolution sample satellite/aerial imagery tile endpoints
 urls = {
-    "airport.png": "https://tile.openstreetmap.org/15/14321/23120.png",
-    "coastal.png": "https://tile.openstreetmap.org/15/14322/23121.png",
-    "urban.png": "https://tile.openstreetmap.org/15/14320/23122.png",
-    "lake.png": "https://tile.openstreetmap.org/15/14323/23123.png",
-    "forest.png": "https://tile.openstreetmap.org/15/14324/23124.png"
+    "airport.png": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/16/28224/46782",
+    "harbor.png": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/16/28230/46790",
+    "stadium.png": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/16/28228/46785",
+    "urban.png": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/16/28225/46784",
+    "forest.png": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/16/28210/46770"
 }
 
-# Browser Headers to prevent blocking
 headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 }
 
+print("[INFO] Fetching sample satellite patches for local archive...")
 for name, url in urls.items():
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200 and len(response.content) > 1000:
-        file_path = f"data/raw/{name}"
-        with open(file_path, 'wb') as handler:
-            handler.write(response.content)
-        print(f"Downloaded & Saved: {file_path}")
-    else:
-        print(f"Failed to fetch: {name}")
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200 and len(response.content) > 1000:
+            file_path = os.path.join("data", "raw", name)
+            with open(file_path, 'wb') as handler:
+                handler.write(response.content)
+            print(f"[OK] Downloaded & Saved: {file_path}")
+        else:
+            print(f"[WARN] Failed to fetch: {name} (Status Code: {response.status_code})")
+    except Exception as e:
+        print(f"[ERROR] Error downloading {name}: {e}")
 
-print("\nDone! Check 'data/raw/' folder now.")
+print("\n[DONE] Sample dataset ready in 'data/raw/' folder.")

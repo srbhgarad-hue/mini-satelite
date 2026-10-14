@@ -1,0 +1,14 @@
+streamlit>=1.25.0
+streamlit-folium>=0.14.0
+folium>=0.14.0
+geopy>=2.3.0
+plotly>=5.15.0
+numpy>=1.24.0
+opencv-python>=4.8.0
+scikit-image>=0.21.0
+pillow>=10.0.0
+requests>=2.31.0
+torch>=2.0.0
+torchvision>=0.15.0
+faiss-cpu>=1.7.4
+git+https://github.com/openai/CLIP.git

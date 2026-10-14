@@ -3,11 +3,14 @@ import numpy as np
 from skimage.metrics import structural_similarity as ssim
 
 def calculate_change_confidence(img_t1_path, img_t2_path, resolution_m=10.0, sensitivity=60, overlay_alpha=0.6):
+    """
+    Computes structural change confidence and highlights regions between two temporal satellite images.
+    """
     img1 = cv2.imread(img_t1_path)
     img2 = cv2.imread(img_t2_path)
     
     if img1 is None or img2 is None:
-        raise FileNotFoundError("Satellite patch images correctly read nahi ho paayi.")
+        raise FileNotFoundError(f"Failed to load satellite image patches: '{img_t1_path}' or '{img_t2_path}' could not be read.")
         
     if img1.shape != img2.shape:
         img2 = cv2.resize(img2, (img1.shape[1], img1.shape[0]))
@@ -21,13 +24,13 @@ def calculate_change_confidence(img_t1_path, img_t2_path, resolution_m=10.0, sen
     diff_inv = 255 - diff_uint8
     
     # Noise Reduction & Morphological Dilation for Sharp Bounding Area
-    _, thresh = cv2.threshold(diff_inv, sensitivity, 255, cv2.THRESH_BINARY)
-    kernel = np.ones((3,3), np.uint8)
+    _, thresh = cv2.threshold(diff_inv, int(sensitivity), 255, cv2.THRESH_BINARY)
+    kernel = np.ones((3, 3), np.uint8)
     thresh_dilated = cv2.dilate(thresh, kernel, iterations=2)
     
     # 1. Vibrant Red Thermal Overlay
     heatmap = cv2.applyColorMap(diff_inv, cv2.COLORMAP_JET)
-    overlay = cv2.addWeighted(img2, 1 - overlay_alpha, heatmap, overlay_alpha, 0)
+    overlay = cv2.addWeighted(img2, 1.0 - overlay_alpha, heatmap, overlay_alpha, 0)
     overlay_rgb = cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB)
     
     # 2. High-Visibility Neon Bounding Boxes & Tags
@@ -57,10 +60,10 @@ def calculate_change_confidence(img_t1_path, img_t2_path, resolution_m=10.0, sen
     bbox_rgb = cv2.cvtColor(bbox_img, cv2.COLOR_BGR2RGB)
     
     # Surface Area Metrics
-    total_pixels = diff_uint8.size
+    total_pixels = max(1, diff_uint8.size)
     changed_pixels = np.count_nonzero(thresh)
     change_ratio = round((changed_pixels / total_pixels) * 100, 2)
-    confidence_score = round((1 - score) * 100, 2)
+    confidence_score = round(max(0.0, min(100.0, (1.0 - score) * 100.0)), 2)
     
     pixel_area_sq_m = resolution_m * resolution_m
     total_changed_area_sq_m = changed_pixels * pixel_area_sq_m
@@ -74,7 +77,7 @@ def calculate_change_confidence(img_t1_path, img_t2_path, resolution_m=10.0, sen
         "bbox_img": bbox_rgb,
         "thresh_mask": thresh_dilated,
         "change_ratio": change_ratio,
-        "unchanged_ratio": round(100.0 - change_ratio, 2),
+        "unchanged_ratio": round(max(0.0, 100.0 - change_ratio), 2),
         "area_hectares": area_hectares,
         "area_sq_km": area_sq_km,
         "bbox_count": bbox_count

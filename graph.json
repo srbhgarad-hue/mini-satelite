@@ -1,0 +1,177 @@
+{
+  "nodes": [
+    {
+      "id": "file:app.py",
+      "type": "file",
+      "name": "app.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:app.py:load_models",
+      "type": "function",
+      "name": "load_models",
+      "source_system": "python",
+      "metadata": {
+        "file": "app.py",
+        "lineno": 32
+      }
+    },
+    {
+      "id": "func:app.py:get_wayback_releases",
+      "type": "function",
+      "name": "get_wayback_releases",
+      "source_system": "python",
+      "metadata": {
+        "file": "app.py",
+        "lineno": 44
+      }
+    },
+    {
+      "id": "func:app.py:get_tile_id_for_year",
+      "type": "function",
+      "name": "get_tile_id_for_year",
+      "source_system": "python",
+      "metadata": {
+        "file": "app.py",
+        "lineno": 85
+      }
+    },
+    {
+      "id": "func:app.py:deg2num",
+      "type": "function",
+      "name": "deg2num",
+      "source_system": "python",
+      "metadata": {
+        "file": "app.py",
+        "lineno": 101
+      }
+    },
+    {
+      "id": "func:app.py:fetch_temporal_tiles",
+      "type": "function",
+      "name": "fetch_temporal_tiles",
+      "source_system": "python",
+      "metadata": {
+        "file": "app.py",
+        "lineno": 108
+      }
+    },
+    {
+      "id": "file:change_detector.py",
+      "type": "file",
+      "name": "change_detector.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:change_detector.py:calculate_change_confidence",
+      "type": "function",
+      "name": "calculate_change_confidence",
+      "source_system": "python",
+      "metadata": {
+        "file": "change_detector.py",
+        "lineno": 5
+      }
+    },
+    {
+      "id": "file:download_images.py",
+      "type": "file",
+      "name": "download_images.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:download_images.py:<module>",
+      "type": "function",
+      "name": "<module>",
+      "source_system": "python",
+      "metadata": {
+        "file": "download_images.py",
+        "lineno": 1
+      }
+    },
+    {
+      "id": "file:ingest.py",
+      "type": "file",
+      "name": "ingest.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:ingest.py:process_and_index_images",
+      "type": "function",
+      "name": "process_and_index_images",
+      "source_system": "python",
+      "metadata": {
+        "file": "ingest.py",
+        "lineno": 13
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "func:app.py:load_models",
+      "target": "file:app.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in app.py:32"
+    },
+    {
+      "source": "func:app.py:get_wayback_releases",
+      "target": "file:app.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in app.py:44"
+    },
+    {
+      "source": "func:app.py:get_tile_id_for_year",
+      "target": "file:app.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in app.py:85"
+    },
+    {
+      "source": "func:app.py:deg2num",
+      "target": "file:app.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in app.py:101"
+    },
+    {
+      "source": "func:app.py:fetch_temporal_tiles",
+      "target": "file:app.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in app.py:108"
+    },
+    {
+      "source": "func:change_detector.py:calculate_change_confidence",
+      "target": "file:change_detector.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in change_detector.py:5"
+    },
+    {
+      "source": "func:download_images.py:<module>",
+      "target": "file:download_images.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in download_images.py:1"
+    },
+    {
+      "source": "func:ingest.py:process_and_index_images",
+      "target": "file:ingest.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in ingest.py:13"
+    }
+  ],
+  "metrics": {
+    "total_nodes": 12,
+    "total_edges": 8,
+    "code_to_db": {
+      "total_access_calls": 0,
+      "static_sql_count": 0,
+      "orm_call_count": 0,
+      "dynamic_unresolved_count": 0,
+      "dynamic_unresolved_ratio": 0
+    }
+  }
+}

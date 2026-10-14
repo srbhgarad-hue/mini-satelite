@@ -1,0 +1,25 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Space Netra Temporary & Cached Files
+temp/
+temp_*.png
+temp_*.jpg
+*.tmp
+
+# VS Code & IDE files
+.vscode/
+.systemlens/
+
+# OS specific files
+.DS_Store
+Thumbs.db
