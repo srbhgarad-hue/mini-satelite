@@ -1,232 +1,261 @@
 import os
 import json
 import numpy as np
+import pandas as pd
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
+from geopy.geocoders import Nominatim
 from PIL import Image
 import plotly.express as px
 import torch
 import clip
 import faiss
 
-# Import Space Netra Modular Backend Services
-import satellite_catalog
-import satellite_loader
-import preprocessor
-import change_engine
-import area_metrics
+# Import Space Netra City-Wide Services
+import city_catalog
+import photo_streamer
+import building_detector
 
 # ─────────────────────────────────────────────────────────────
 # PAGE CONFIGURATION
 # ─────────────────────────────────────────────────────────────
 st.set_page_config(
     layout="wide",
-    page_title="Space Netra — Live Satellite Intelligence & Change Detection Engine",
-    page_icon="🛰️"
+    page_title="Space Netra — City-Wide Photographic Building Intelligence",
+    page_icon="🏙️"
 )
 
-st.title("🛰️ Space Netra: Satellite Intelligence & Change Detection")
-st.caption("Pilot AOI: Chhatrapati Sambhajinagar (Aurangabad), Maharashtra | Sentinel-2 L2A (10m) + CLIP/FAISS")
+st.title("🏙️ Space Netra: City-Wide Building Change Intelligence")
+st.caption("Coverage: Full Municipal Region of Chhatrapati Sambhajinagar (Aurangabad), Maharashtra | Real Optical Satellite & Aerial Photography")
 
 # ─────────────────────────────────────────────────────────────
 # SIDEBAR CONTROLS
 # ─────────────────────────────────────────────────────────────
 st.sidebar.header("🕹️ Control Panel")
 app_mode = st.sidebar.selectbox("Select Action Mode", [
-    "🛰️ Multi-Temporal Change Detection",
+    "🏙️ Whole-City Building Change Detection",
     "🔍 Vector-Based Semantic Search"
 ])
 
 # ─────────────────────────────────────────────────────────────
-# MODE 1: SATELLITE CHANGE DETECTION (SENTINEL-2 L2A PIPELINE)
+# MODE 1: WHOLE-CITY PHOTOGRAPHIC BUILDING CHANGE DETECTION
 # ─────────────────────────────────────────────────────────────
-if app_mode == "🛰️ Multi-Temporal Change Detection":
-    st.sidebar.subheader("📅 Temporal Observation Configuration")
+if app_mode == "🏙️ Whole-City Building Change Detection":
+    st.sidebar.subheader("📍 City Navigator")
     
-    st.sidebar.info("🛰️ **Sensor:** Copernicus Sentinel-2A MSI (Level-2A BOA Reflectance)")
-    st.sidebar.write("**T1 (Historical Baseline):** March 30, 2021 (Cloud: 0.05%)")
-    st.sidebar.write("**T2 (Recent Observation):** March 14, 2024 (Cloud: 0.00%)")
-    st.sidebar.caption("⏱️ **Temporal Gap:** 3.0 Years (Anniversary Pair)")
+    # City Sector Hotspot Selector
+    hotspot_names = list(city_catalog.CITY_HOTSPOTS.keys())
+    selected_sector_name = st.sidebar.selectbox(
+        "Choose City Growth Sector:",
+        hotspot_names,
+        index=0,
+        help="Select any major urban expansion hub across Chhatrapati Sambhajinagar."
+    )
+    sector_meta = city_catalog.get_hotspot_info(selected_sector_name)
 
-    st.sidebar.subheader("🎛️ Analysis Sensitivity")
-    sensitivity = st.sidebar.slider("Detection Sensitivity (Threshold)", 20, 120, 50, help="Lower values detect subtle ground transitions; higher values isolate major clearings.")
-    min_cluster = st.sidebar.slider("Min Cluster Size (Pixels)", 5, 50, 15, help="Filters out isolated single-pixel sensor noise.")
-    overlay_alpha = st.sidebar.slider("Heatmap Transparency", 0.1, 0.9, 0.5)
+    # Custom address / landmark search
+    custom_search = st.sidebar.text_input(
+        "Or Search Any Custom Address in City:",
+        value="",
+        placeholder="e.g. Prozone Mall, Chikalthana, Waluj..."
+    )
 
-    # AOI Header Card
-    st.subheader("📍 Target Area of Interest: Shendra MIDC Expansion Corridor")
+    current_lat = sector_meta["lat"]
+    current_lon = sector_meta["lon"]
+    zoom_level = sector_meta.get("zoom", 16)
+    sector_display_name = sector_meta["name"]
+    sector_category = sector_meta["category"]
+    sector_desc = sector_meta["description"]
+
+    if custom_search.strip():
+        try:
+            geolocator = Nominatim(user_agent="space_netra_city_navigator")
+            full_query = f"{custom_search}, Chhatrapati Sambhajinagar, Maharashtra"
+            loc = geolocator.geocode(full_query, timeout=8)
+            if loc:
+                current_lat, current_lon = loc.latitude, loc.longitude
+                sector_display_name = custom_search
+                sector_category = "Custom Searched Point"
+                sector_desc = f"Coordinates: {current_lat:.4f}° N, {current_lon:.4f}° E"
+                st.sidebar.success(f"📍 Found: Lat {current_lat:.4f}, Lon {current_lon:.4f}")
+        except Exception:
+            pass
+
+    st.sidebar.subheader("🎛️ Building Detection Calibration")
+    zoom_val = st.sidebar.slider("Aerial Zoom Level", 15, 18, zoom_level, help="Zoom 16: ~2.2m GSD | Zoom 17: ~1.1m GSD | Zoom 18: ~0.55m Sub-Meter GSD (Individual roofs and windows visible).")
+    min_bldg_area = st.sidebar.slider("Min Building Footprint (m²)", 20, 250, 50, help="Filters out vehicles, trees, and road stripes. Standard house floor is ~50-100 m².")
+    sensitivity = st.sidebar.slider("Structural Sensitivity", 30, 100, 55, help="Controls edge and structural difference threshold.")
+
+    # ── City Location Context Banner ──
+    col_info, col_map = st.columns([2, 3])
     
-    # ── Map Container ──
-    col_map, col_aoi_info = st.columns([3, 1])
-    
-    with col_aoi_info:
-        st.markdown("""
-        **AOI Specification:**
-        - **Location:** Chh. Sambhajinagar, MH
-        - **Sector:** Shendra MIDC Industrial Belt
-        - **Coordinates:** 19.8700° N, 75.4900° E
-        - **Footprint:** 2.0 km × 2.0 km
-        - **Total Ground Area:** 400.0 Hectares
-        - **Metric CRS:** UTM Zone 43N (EPSG:32643)
-        - **Target Event:** Agricultural to Industrial Land Conversion
+    with col_info:
+        st.subheader(f"📍 {sector_display_name}")
+        st.markdown(f"""
+        - **Sector Category:** `{sector_category}`
+        - **Description:** {sector_desc}
+        - **Coordinates:** `{current_lat:.4f}° N, {current_lon:.4f}° E`
+        - **Historical Baseline Epoch 1:** January 2016 (Esri Wayback Archive)
+        - **Mid-Stage Epoch 2:** January 2020 (Esri Wayback Archive)
+        - **Current Epoch 3:** 2025/2026 (High-Res Optical Satellite)
         """)
 
     with col_map:
         m = folium.Map(
-            location=[19.8700, 75.4900],
-            zoom_start=14,
+            location=[current_lat, current_lon],
+            zoom_start=zoom_val,
             tiles="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
             attr="Google Satellite"
         )
-        # Bounding box polygon for Shendra MIDC
-        folium.Rectangle(
-            bounds=[[19.8600, 75.4800], [19.8800, 75.5000]],
-            color="#2673D9",
-            weight=3,
-            fill=True,
-            fill_color="#2673D9",
-            fill_opacity=0.2,
-            popup="Shendra MIDC 2x2 km Target AOI",
-            tooltip="Pilot AOI: 400 Hectares"
+        folium.Marker(
+            [current_lat, current_lon],
+            popup=f"Selected: {sector_display_name}",
+            tooltip=f"{sector_display_name} (Click to inspect)"
         ).add_to(m)
-        st_folium(m, width=950, height=280)
+        st_folium(m, width=650, height=220)
 
-    # ── Sensor Resolution & Methodology Disclaimer ──
-    st.info(
-        "🛰️ **Scientific Sensor Disclaimer:** Analysis conducted on **Copernicus Sentinel-2 Level-2A 10m Surface Reflectance** "
-        "via Microsoft Planetary Computer STAC. The engine detects macro-scale land-cover transformations, grading, and urban expansion. "
-        "Individual residential building outlines are beyond the physical 10m optical resolution limit."
-    )
+    # ── Fetch 3-Stage Photography & Run Building Detection ──
+    with st.spinner(f"⏳ Ingesting high-resolution 3-stage photography for {sector_display_name}..."):
+        timeline = photo_streamer.fetch_3stage_photographic_timeline(current_lat, current_lon, zoom=zoom_val)
+        
+        # Detect new buildings between Epoch 1 (2016) and Epoch 3 (Current)
+        det_res = building_detector.detect_new_buildings(
+            timeline["p1_path"],
+            timeline["p3_path"],
+            gsd_m=timeline["gsd_m"],
+            min_area_sq_m=float(min_bldg_area),
+            sensitivity=sensitivity
+        )
 
-    # ── Ingest & Execute Change Pipeline ──
-    with st.spinner("⏳ Loading calibrated Sentinel-2 Level-2A multispectral bands & executing engine..."):
-        try:
-            pair_data = satellite_loader.load_temporal_pair()
-            valid_mask = preprocessor.build_valid_pixel_mask(pair_data["t1_scl"], pair_data["t2_scl"])
-            
-            # Detect changes via combined Delta-NDVI and SSIM
-            res = change_engine.detect_surface_changes(
-                pair_data["t1_b04"], pair_data["t1_b08"],
-                pair_data["t2_b04"], pair_data["t2_b08"],
-                valid_mask,
-                sensitivity=sensitivity,
-                min_cluster_px=min_cluster,
-                overlay_alpha=overlay_alpha
+    # ── Top Metrics Row ──
+    st.write("---")
+    m1, m2, m3, m4, m5 = st.columns(5)
+    m1.metric("🏢 New Buildings Found", f"{det_res['building_count']} Structures")
+    m2.metric("📐 New Built Footprint", f"{det_res['total_built_area_sq_m']:,.1f} m²")
+    m3.metric("🌍 Built-Up Density", f"{det_res['building_density_pct']}% of ground")
+    m4.metric("📸 Image Resolution", f"{det_res['gsd_m']} m/pixel", help="High-resolution optical ground sampling distance")
+    m5.metric("🚦 Expansion Level", "🚨 High Growth" if det_res['building_count'] >= 3 else ("⚠️ Moderate Growth" if det_res['building_count'] > 0 else "✅ Stable Ground"))
+
+    # ── Main View Selection ──
+    tab_highlight, tab_timeline, tab_table, tab_report = st.tabs([
+        "🏢 Photorealistic Building Detection & Outlines",
+        "⏱️ 3-Stage Temporal Evolution Timeline (2016 → 2020 → 2026)",
+        "📋 Detected Building Inventory & Dimensions",
+        "📄 Official City Intelligence Report"
+    ])
+
+    with tab_highlight:
+        st.subheader("High-Resolution Real Optical Satellite View with Labeled New Buildings")
+        st.caption("Vector yellow polygons and labeled badges denote newly constructed building roofs and architectural structures.")
+
+        view_choice = st.radio(
+            "Select Display Mode:",
+            [
+                "🏢 Labeled Vector Outlines on Real Current Photo",
+                "🔴 Thermal Construction Heatmap Overlay",
+                "⚪ Clean Binary Building Footprint Mask"
+            ],
+            horizontal=True
+        )
+
+        c_left, c_right = st.columns(2)
+        c_left.image(
+            timeline["p1_path"],
+            caption=f"📅 Epoch 1: {timeline['dates']['epoch_1']} (Historical Baseline Photo)",
+            use_container_width=True
+        )
+
+        if view_choice == "🏢 Labeled Vector Outlines on Real Current Photo":
+            c_right.image(
+                det_res['annotated_img'],
+                caption=f"📅 Epoch 3: {timeline['dates']['epoch_3']} (Real Photo with Detected New Buildings)",
+                use_container_width=True
+            )
+        elif view_choice == "🔴 Thermal Construction Heatmap Overlay":
+            c_right.image(
+                det_res['heatmap_img'],
+                caption="🔴 Thermal Construction Intensity (Red/Yellow = Major Structural Additions)",
+                use_container_width=True
+            )
+        else:
+            c_right.image(
+                det_res['binary_mask'],
+                caption="⚪ Binary Extracted Building Footprints",
+                use_container_width=True
             )
 
-            # Compute mathematically grounded metric area
-            metrics = area_metrics.calculate_geospatial_metrics(
-                res["change_mask"], valid_mask, gsd_meters=pair_data["gsd_m"]
+    with tab_timeline:
+        st.subheader(f"⏱️ 3-Stage Multi-Year Building Evolution: {sector_display_name}")
+        st.caption("Observe the progressive emergence of new buildings, road networks, and compound walls across a 10-year timeline.")
+
+        tc1, tc2, tc3 = st.columns(3)
+        tc1.image(
+            timeline["p1_path"],
+            caption=f"1️⃣ Epoch 1: {timeline['dates']['epoch_1']}\n(Original Open Ground & Sparse Structures)",
+            use_container_width=True
+        )
+        tc2.image(
+            timeline["p2_path"],
+            caption=f"2️⃣ Epoch 2: {timeline['dates']['epoch_2']}\n(Mid-Stage Construction & Initial Infill)",
+            use_container_width=True
+        )
+        tc3.image(
+            det_res['annotated_img'],
+            caption=f"3️⃣ Epoch 3: {timeline['dates']['epoch_3']}\n(Current State with New Building Badges)",
+            use_container_width=True
+        )
+
+    with tab_table:
+        st.subheader("📋 Itemized Inventory of Detected New Buildings")
+        if det_res["inventory"]:
+            df = pd.DataFrame(det_res["inventory"])
+            st.dataframe(df, use_container_width=True)
+
+            # Chart of Building Footprint Sizes
+            fig_bar = px.bar(
+                df,
+                x="Building ID",
+                y="Footprint Area (m²)",
+                title="Individual Building Footprint Areas (Square Meters)",
+                color="Footprint Area (m²)",
+                color_continuous_scale="Viridis"
             )
-            success = True
-        except Exception as e:
-            st.error(f"⚠️ Error executing change detection pipeline: {e}")
-            success = False
+            st.plotly_chart(fig_bar, use_container_width=True)
+        else:
+            st.info("✅ No new building structures detected in this sector meeting the minimum area threshold.")
 
-    if success:
-        st.write("---")
-        st.subheader("📊 Quantitative Surface Transition Metrics (UTM Zone 43N)")
-
-        # Metrics Row
-        m1, m2, m3, m4, m5, m6 = st.columns(6)
-        m1.metric("🔬 Divergence Index", f"{res['mean_divergence']}")
-        m2.metric("🌍 Change Ratio", f"{metrics['change_ratio_pct']}%")
-        m3.metric("📐 Impacted Area", f"{metrics['changed_area_ha']} Ha", help="100 m² per pixel in UTM Zone 43N")
-        m4.metric("🔲 Hotspot Clusters", f"{res['cluster_count']} Zones")
-        m5.metric("☁️ Valid Data", f"{metrics['valid_coverage_pct']}%", help="Excluded SCL clouds & shadows")
-        m6.metric("🚦 Status", "⚠️ Significant Change" if metrics['change_ratio_pct'] > 5.0 else "✅ Stable Ground")
-
-        # Tabs
-        tab_visuals, tab_analytics, tab_report = st.tabs([
-            "🖼️ Visual Comparison & Heatmaps",
-            "📈 Spatial Analytics & Land Distribution",
-            "📋 Geospatial Intelligence Report"
-        ])
-
-        with tab_visuals:
-            view_mode = st.radio(
-                "Select Analytical Visualization Layer:",
-                [
-                    "🟨 Bounding Box Change Clusters",
-                    "🔴 Thermal Heatmap Overlay (JET)",
-                    "⚪ Binary Change Mask",
-                    "🟣 Cloud & Shadow Screening Mask"
-                ],
-                horizontal=True
-            )
-
-            c1, c2, c3 = st.columns(3)
-            c1.image(pair_data["t1_visual_path"], caption="📅 T1: March 30, 2021 (Baseline Agricultural / Fallow)", width='stretch')
-            c2.image(pair_data["t2_visual_path"], caption="📅 T2: March 14, 2024 (Industrial Ground Preparation)", width='stretch')
-
-            if view_mode == "🟨 Bounding Box Change Clusters":
-                c3.image(res['bbox_img'], caption="🟨 Detected Expansion Zones (Neon Bounding Boxes)", width='stretch')
-            elif view_mode == "🔴 Thermal Heatmap Overlay (JET)":
-                c3.image(res['overlay'], caption="🔴 Surface Transition Heatmap (Red/Yellow = High Delta)", width='stretch')
-            elif view_mode == "⚪ Binary Change Mask":
-                c3.image(res['change_mask'], caption="⚪ Cleaned Binary Change Mask (10m Pixels)", width='stretch')
-            else:
-                c3.image(res['cloud_mask_visual'], caption="🟣 SCL Quality Mask (Green=Valid, Magenta=Cloud/Shadow)", width='stretch')
-
-        with tab_analytics:
-            ca1, ca2 = st.columns(2)
-            with ca1:
-                st.subheader("Land Surface Distribution")
-                fig_pie = px.pie(
-                    values=[metrics['changed_area_ha'], metrics['unchanged_area_ha']],
-                    names=['Converted / Changed Ground', 'Stable / Unchanged Ground'],
-                    color_discrete_sequence=['#E63946', '#2A9D8F'],
-                    hole=0.4
-                )
-                st.plotly_chart(fig_pie, width='stretch')
-
-            with ca2:
-                st.subheader("Area Metric Breakdown (Hectares)")
-                fig_bar = px.bar(
-                    x=["Total AOI Footprint", "Valid Unmasked Ground", "Candidate Converted Area"],
-                    y=[metrics['total_area_ha'], metrics['valid_area_ha'], metrics['changed_area_ha']],
-                    color=["Total", "Valid", "Changed"],
-                    color_discrete_map={"Total": "#457B9D", "Valid": "#2A9D8F", "Changed": "#E63946"}
-                )
-                st.plotly_chart(fig_bar, width='stretch')
-
-        with tab_report:
-            st.subheader("📋 Official Geospatial Intelligence Report")
-            report_body = f"""================================================================================
-SPACE NETRA — GEOSPATIAL INTELLIGENCE & CHANGE DETECTION REPORT
-Target Location: Shendra MIDC Expansion Corridor, Chhatrapati Sambhajinagar, India
+    with tab_report:
+        st.subheader("📄 Chhatrapati Sambhajinagar City Building Intelligence Report")
+        report_text = f"""================================================================================
+SPACE NETRA — MUNICIPAL BUILDING CHANGE INTELLIGENCE REPORT
+City: Chhatrapati Sambhajinagar (Aurangabad), Maharashtra, India
 ================================================================================
-SATELLITE PROVENANCE METADATA:
-- Platform / Constellation   : European Space Agency Copernicus Sentinel-2A
-- Sensor Payload             : Multi-Spectral Instrument (MSI)
-- Processing Baseline        : Level-2A Bottom-of-Atmosphere (BOA) Surface Reflectance
-- Spatial Resolution (GSD)   : 10.0 meters / pixel
-- Target Coordinate System   : UTM Zone 43N (EPSG:32643) / WGS84
-- Observation T1 (Baseline)  : 2021-03-30T05:26:41Z (Cloud Cover: 0.05%)
-- Observation T2 (Recent)    : 2024-03-14T05:26:41Z (Cloud Cover: 0.00%)
-- Temporal Baseline Gap      : 3.0 Years (Anniversary Pair)
+SECTOR & SPATIAL PARAMETERS:
+- Sector Name                : {sector_display_name}
+- Category                   : {sector_category}
+- Coordinates                : Lat {current_lat:.4f}° N, Lon {current_lon:.4f}° E
+- Ground Sampling Distance   : {det_res['gsd_m']} meters / pixel (High-Res Optical Aerial Photography)
+- Web Mercator Tile Index    : X={timeline['x']}, Y={timeline['y']} (Zoom Level: {timeline['zoom']})
 --------------------------------------------------------------------------------
-GEOSPATIAL AREA QUANTIFICATION:
-- Total AOI Footprint        : {metrics['total_area_ha']} Hectares ({metrics['total_sq_km']} sq km)
-- Valid Analyzed Surface     : {metrics['valid_area_ha']} Hectares ({metrics['valid_coverage_pct']}% data validity)
-- Masked Clouds & Shadows    : {metrics['total_area_ha'] - metrics['valid_area_ha']:.2f} Hectares (Screened via SCL Layer)
-- Confirmed Changed Surface  : {metrics['changed_area_ha']} Hectares ({metrics['changed_sq_km']} sq km)
-- Change Surface Percentage  : {metrics['change_ratio_pct']}% of valid ground
-- Detected Change Hotspots   : {res['cluster_count']} discrete structural expansion clusters
+TEMPORAL EVOLUTION TIMELINE:
+- Epoch 1 (Historical)       : {timeline['dates']['epoch_1']} (Esri World Imagery Wayback)
+- Epoch 2 (Mid-Stage)        : {timeline['dates']['epoch_2']} (Esri World Imagery Wayback)
+- Epoch 3 (Current)          : {timeline['dates']['epoch_3']} (High-Resolution Optical Satellite)
 --------------------------------------------------------------------------------
-ALGORITHMIC DETECTION BASELINE:
-- Core Methodology           : Multi-Spectral Delta-NDVI + Structural Similarity (SSIM)
-- Sensitivity Threshold      : {sensitivity} (Otsu / Configurable)
-- Cluster Minimum Area       : {min_cluster} pixels (400 m^2 floor)
-- Classification Status      : {'ACTION REQUIRED: Significant Surface Conversion Detected' if metrics['change_ratio_pct'] > 5.0 else 'NORMAL: Static Surface Observed'}
+BUILDING DETECTION AUDIT RESULTS:
+- Detected New Buildings     : {det_res['building_count']} distinct structures
+- Total New Built-Up Area    : {det_res['total_built_area_sq_m']:,} m² ({det_res['total_built_area_ha']} Hectares)
+- Built-Up Expansion Density : {det_res['building_density_pct']}% of analyzed visual frame
+- Minimum Footprint Filter   : {min_bldg_area} m² (Geometric Aspect-Ratio Filter Active)
+- Operational Verdict        : {'ACTION REQUIRED: Significant New Building Construction' if det_res['building_count'] > 0 else 'STABLE: No New Construction Detected'}
 ================================================================================"""
-            st.code(report_body, language="text")
-            st.download_button(
-                "📥 Download Geospatial Report (.txt)",
-                report_body,
-                file_name="space_netra_sambhajinagar_intelligence_report.txt"
-            )
+        st.code(report_text, language="text")
+        st.download_button(
+            "📥 Download Municipal Building Report (.txt)",
+            report_text,
+            file_name=f"space_netra_{sector_display_name.lower().replace(' ', '_')}_building_report.txt"
+        )
 
 # ─────────────────────────────────────────────────────────────
 # MODE 2: VECTOR-BASED SEMANTIC SEARCH (PRESERVED CLIP + FAISS)
@@ -279,7 +308,7 @@ elif app_mode == "🔍 Vector-Based Semantic Search":
                             img = Image.open(item["path"])
                             score = round(float(distances[0][i]) * 100.0, 2)
                             with cols[i]:
-                                st.image(img, caption=f"📌 {item['filename']} | Match: {score}%", width='stretch')
+                                st.image(img, caption=f"📌 {item['filename']} | Match: {score}%", use_container_width=True)
                         else:
                             with cols[i]:
                                 st.warning(f"File missing: {item['filename']}")
