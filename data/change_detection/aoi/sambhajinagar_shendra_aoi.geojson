@@ -1,0 +1,38 @@
+{
+  "type": "FeatureCollection",
+  "name": "sambhajinagar_shendra_aoi",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "CSN_SHENDRA_01",
+        "name": "Shendra MIDC Industrial Expansion Corridor",
+        "city": "Chhatrapati Sambhajinagar",
+        "state": "Maharashtra",
+        "country": "India",
+        "area_sq_km": 4.0,
+        "area_hectares": 400.0,
+        "utm_crs": "EPSG:32643",
+        "target_phenomenon": "Macro-scale conversion of agricultural/fallow land to graded industrial building pads"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [75.4800, 19.8600],
+            [75.5000, 19.8600],
+            [75.5000, 19.8800],
+            [75.4800, 19.8800],
+            [75.4800, 19.8600]
+          ]
+        ]
+      }
+    }
+  ]
+}
