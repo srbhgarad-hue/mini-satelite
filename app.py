@@ -3,6 +3,8 @@ app.py
 ======
 Space Netra — Professional Satellite Intelligence & Change Detection Platform
 Coverage: Full Municipal Region of Chhatrapati Sambhajinagar (Aurangabad), Maharashtra
+Includes: High-Resolution Photographic Building Detection, Sentinel-2 Multispectral Differencing,
+          Experimental S2Looking Bitemporal U-Net Model, and CLIP+FAISS Semantic Search.
 """
 
 import os
@@ -28,6 +30,7 @@ import satellite_loader
 import preprocessor
 import change_engine
 import area_metrics
+import spacenetra_model
 
 # ─────────────────────────────────────────────────────────────
 # 1. PAGE CONFIGURATION & GEOSPATIAL DESIGN SYSTEM
@@ -159,7 +162,7 @@ st.markdown("""
     
     /* Tab Styling */
     button[data-baseweb="tab"] {
-        color: #94a3b8 !500;
+        color: #94a3b8 !important;
         font-weight: 500;
     }
     button[data-baseweb="tab"][aria-selected="true"] {
@@ -261,7 +264,7 @@ if app_mode == "🛰️ Satellite Change Detection":
         </div>
         <div style="font-size: 0.74rem; color: #64748b; margin-top: 8px;">
             CRS: EPSG:4326 (WGS 84)<br>
-            Grid: Web Mercator Tile
+            Grid: Web Mercator Zoom {zoom_val}
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -313,7 +316,7 @@ if app_mode == "🛰️ Satellite Change Detection":
         )
         col_btn_geo, col_btn_coord = st.columns(2)
         with col_btn_geo:
-            geocode_clicked = st.button("🔎 Geocode Address", use_container_width=True)
+            geocode_clicked = st.button("🔎 Geocode Address", width="stretch")
 
     if geocode_clicked and custom_query.strip():
         try:
@@ -406,7 +409,7 @@ if app_mode == "🛰️ Satellite Change Detection":
             </div>
         """, unsafe_allow_html=True)
         
-        run_detection_btn = st.button("🚀 Find Changes / Run Detection", type="primary", use_container_width=True)
+        run_detection_btn = st.button("🚀 Find Changes / Run Detection", type="primary", width="stretch")
         st.markdown("</div>", unsafe_allow_html=True)
 
     # ── Run Change Detection Execution ──
@@ -439,11 +442,12 @@ if app_mode == "🛰️ Satellite Change Detection":
         m5.metric("Expansion Level", "High Growth" if det_res['building_count'] >= 3 else ("Moderate Growth" if det_res['building_count'] > 0 else "Stable Surface"))
 
         # ── Primary Analysis Tabs ──
-        tab_outlines, tab_timeline, tab_inventory, tab_sentinel2, tab_report = st.tabs([
+        tab_outlines, tab_timeline, tab_inventory, tab_sentinel2, tab_ml_unet, tab_report = st.tabs([
             "🏢 Building Outlines & Verification",
             "⏱️ 3-Stage Multi-Year Timeline",
             "📋 Detected Building Inventory & Dimensions",
             "🛰️ Sentinel-2 Multispectral Surface Differencing",
+            "🧪 Experimental ML Change Detection",
             "📄 Municipal Intelligence Report"
         ])
 
@@ -466,26 +470,26 @@ if app_mode == "🛰️ Satellite Change Detection":
                 st.image(
                     timeline["p1_path"],
                     caption=f"Baseline Photo — {timeline['dates']['epoch_1']} (Esri World Imagery Wayback)",
-                    use_container_width=True
+                    width="stretch"
                 )
             with col_img2:
                 if view_mode == "Labeled Emerald Green Outlines on Current Real Photo":
                     st.image(
                         det_res["annotated_img"],
                         caption=f"Current Photo with Detected Buildings — {timeline['dates']['epoch_3']}",
-                        use_container_width=True
+                        width="stretch"
                     )
                 elif view_mode == "Thermal Construction Intensity Heatmap":
                     st.image(
                         det_res["heatmap_img"],
                         caption="Thermal Structural Difference Intensity (Red/Yellow = Major Structural Modifications)",
-                        use_container_width=True
+                        width="stretch"
                     )
                 else:
                     st.image(
                         det_res["binary_mask"],
                         caption="Extracted Binary Building Roof Footprint Mask",
-                        use_container_width=True
+                        width="stretch"
                     )
 
         with tab_timeline:
@@ -497,26 +501,26 @@ if app_mode == "🛰️ Satellite Change Detection":
                 st.image(
                     timeline["p1_path"],
                     caption=f"Epoch 1 (Baseline): {timeline['dates']['epoch_1']}\nOriginal Ground & Sparse Structures",
-                    use_container_width=True
+                    width="stretch"
                 )
             with t_col2:
                 st.image(
                     timeline["p2_path"],
                     caption=f"Epoch 2 (Mid-Stage): {timeline['dates']['epoch_2']}\nMid-Stage Groundwork & Infill",
-                    use_container_width=True
+                    width="stretch"
                 )
             with t_col3:
                 st.image(
                     det_res["annotated_img"],
                     caption=f"Epoch 3 (Current): {timeline['dates']['epoch_3']}\nCurrent Structures with Building Tags",
-                    use_container_width=True
+                    width="stretch"
                 )
 
         with tab_inventory:
             st.subheader("Itemized Inventory of Detected New Buildings")
             if det_res["inventory"]:
                 df_bldgs = pd.DataFrame(det_res["inventory"])
-                st.dataframe(df_bldgs, use_container_width=True)
+                st.dataframe(df_bldgs, width="stretch")
 
                 # Emerald Green Plotly Chart following Semantic Colors (Phase 6)
                 fig_bar = px.bar(
@@ -536,7 +540,7 @@ if app_mode == "🛰️ Satellite Change Detection":
                     xaxis=dict(gridcolor="#1e293b"),
                     yaxis=dict(gridcolor="#1e293b")
                 )
-                st.plotly_chart(fig_bar, use_container_width=True)
+                st.plotly_chart(fig_bar, width="stretch")
             else:
                 st.info("No newly constructed building structures detected in this sector meeting the minimum area threshold.")
 
@@ -554,9 +558,9 @@ if app_mode == "🛰️ Satellite Change Detection":
 
                 col_s2_1, col_s2_2 = st.columns(2)
                 with col_s2_1:
-                    st.image(pairs["t1_visual_path"], caption="Sentinel-2 L2A BOA True Color (March 30, 2021)", use_container_width=True)
+                    st.image(pairs["t1_visual_path"], caption="Sentinel-2 L2A BOA True Color (March 30, 2021)", width="stretch")
                 with col_s2_2:
-                    st.image(pairs["t2_visual_path"], caption="Sentinel-2 L2A BOA True Color (March 14, 2024)", use_container_width=True)
+                    st.image(pairs["t2_visual_path"], caption="Sentinel-2 L2A BOA True Color (March 14, 2024)", width="stretch")
 
                 st.write("---")
                 sm1, sm2, sm3, sm4 = st.columns(4)
@@ -590,10 +594,149 @@ if app_mode == "🛰️ Satellite Change Detection":
                     font=dict(color="#f8fafc"),
                     margin=dict(l=20, r=20, t=50, b=20)
                 )
-                st.plotly_chart(fig_donut, use_container_width=True)
+                st.plotly_chart(fig_donut, width="stretch")
 
             except Exception as e:
                 st.warning(f"Calibrated Sentinel-2 data unavailable or requires pre-staging: {e}")
+
+        # ── NEW TAB: EXPERIMENTAL ML CHANGE DETECTION (S2LOOKING U-NET) ──
+        with tab_ml_unet:
+            st.subheader("🧪 Experimental ML Change Detection (S2Looking Bitemporal U-Net)")
+            st.caption("Deep-learning binary change-detection neural network trained on a subset of the S2Looking benchmark dataset.")
+
+            # Honest Model-Status Notice (Sections 4 & 5)
+            st.markdown("""
+            <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 14px 18px; margin-bottom: 18px;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <span style="font-weight: 700; color: #f59e0b; font-size: 0.95rem;">
+                        ⚠️ EXPERIMENTAL RESEARCH PREVIEW — S2Looking Bitemporal U-Net
+                    </span>
+                    <span style="background: #f59e0b; color: #0b0f19; font-weight: 700; font-size: 0.72rem; padding: 2px 8px; border-radius: 4px;">
+                        EPOCH 2 CHECKPOINT
+                    </span>
+                </div>
+                <p style="font-size: 0.82rem; color: #cbd5e1; margin: 8px 0 10px 0;">
+                    This deep-learning model was trained in Google Colab on a sampled subset (500 train pairs, 100 val pairs) of the <strong>S2Looking</strong> satellite building change benchmark. Validation metrics indicate preliminary, exploratory detection capability. Output is a <strong>binary change probability mask only</strong> (it does not distinguish construction from demolition).
+                </p>
+                <div style="display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.80rem; color: #94a3b8;">
+                    <span>Benchmark Precision: <strong style="color: #f8fafc;">0.2993</strong></span>
+                    <span>Recall: <strong style="color: #f8fafc;">0.1534</strong></span>
+                    <span>Validation F1: <strong style="color: #f8fafc;">0.2028</strong></span>
+                    <span>Validation IoU: <strong style="color: #f8fafc;">0.1129</strong></span>
+                    <span>Loss: <strong style="color: #f8fafc;">1.1263</strong></span>
+                </div>
+                <div style="font-size: 0.74rem; color: #64748b; margin-top: 6px;">
+                    * Note: These are benchmark validation results across 100 test pairs, not performance measurements for the currently selected AOI.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Model Loading via Streamlit Cache
+            @st.cache_resource
+            def load_cached_unet():
+                return spacenetra_model.load_model()
+
+            ml_model, ml_meta, ml_err = load_cached_unet()
+
+            if ml_err:
+                st.error(f"Could not load ML checkpoint: {ml_err}")
+            else:
+                # Source Selection
+                ml_source_mode = st.radio(
+                    "Image Input Source for Model Inference:",
+                    [
+                        "Use Current Active Area Images (Epoch 1 2016 vs. Epoch 3 Current)",
+                        "Upload Custom Image Pair (Before / After)"
+                    ],
+                    horizontal=True
+                )
+
+                input_img1 = None
+                input_img2 = None
+                provenance_note = ""
+
+                if ml_source_mode == "Use Current Active Area Images (Epoch 1 2016 vs. Epoch 3 Current)":
+                    input_img1 = timeline["p1_path"]
+                    input_img2 = timeline["p3_path"]
+                    provenance_note = f"Analyzing Active Sector: {st.session_state['active_area_name']} | Earlier: {timeline['dates']['epoch_1']} (Esri Wayback) | Later: {timeline['dates']['epoch_3']} (Optical Satellite)"
+                    st.info(f"📍 {provenance_note}")
+                else:
+                    st.write("Upload custom Earlier ($T_1$) and Later ($T_2$) images (PNG or JPG):")
+                    u_col1, u_col2 = st.columns(2)
+                    with u_col1:
+                        f1 = st.file_uploader("Upload Earlier Image (T1)", type=["png", "jpg", "jpeg"], key="ml_upl_1")
+                    with u_col2:
+                        f2 = st.file_uploader("Upload Later Image (T2)", type=["png", "jpg", "jpeg"], key="ml_upl_2")
+
+                    if f1 and f2:
+                        input_img1 = Image.open(f1)
+                        input_img2 = Image.open(f2)
+                        provenance_note = f"Analyzing User-Uploaded Images: '{f1.name}' vs. '{f2.name}'"
+                    else:
+                        st.caption("Upload both an earlier and later image to enable custom inference.")
+
+                # Controls
+                c_thresh, c_btn = st.columns([3, 2])
+                with c_thresh:
+                    thresh_val = st.slider(
+                        "Prediction Threshold",
+                        min_value=0.20,
+                        max_value=0.80,
+                        value=0.50,
+                        step=0.05,
+                        help="Default 0.50. Pixels with change probability >= threshold are classified as changed."
+                    )
+                with c_btn:
+                    st.write("") # spacing
+                    run_ml_btn = st.button("🔬 Run U-Net ML Inference", type="primary", width="stretch", disabled=(input_img1 is None or input_img2 is None))
+
+                if run_ml_btn and input_img1 is not None and input_img2 is not None:
+                    with st.spinner("Preprocessing image pair (bilinear 256×256, 6-channel tensor) and computing U-Net forward pass..."):
+                        tensor_6ch, im1_prep, im2_prep = spacenetra_model.preprocess_pair(input_img1, input_img2, target_size=256)
+                        pred = spacenetra_model.predict_change(
+                            ml_model,
+                            tensor_6ch,
+                            im2_prep,
+                            threshold=thresh_val,
+                            device=ml_meta["device"]
+                        )
+                        st.session_state["ml_last_pred"] = pred
+                        st.session_state["ml_im1_prep"] = im1_prep
+                        st.session_state["ml_im2_prep"] = im2_prep
+                        st.session_state["ml_provenance"] = provenance_note
+
+                if "ml_last_pred" in st.session_state and st.session_state["ml_last_pred"] is not None:
+                    pred = st.session_state["ml_last_pred"]
+                    im1_p = st.session_state["ml_im1_prep"]
+                    im2_p = st.session_state["ml_im2_prep"]
+
+                    st.markdown("---")
+                    pm1, pm2, pm3, pm4 = st.columns(4)
+                    pm1.metric("Predicted Changed Pixels", f"{pred['changed_pixels']:,} px")
+                    pm2.metric("Predicted Change Fraction", f"{pred['change_ratio_pct']}% of frame")
+                    pm3.metric("Decision Threshold", f"{pred['threshold']}")
+                    pm4.metric("Model Status", "Inference OK", help="Strict checkpoint execution completed with no NaNs or non-finite values.")
+
+                    # 4-column visual display
+                    col_p1, col_p2, col_p3, col_p4 = st.columns(4)
+                    with col_p1:
+                        st.image(im1_p, caption="Earlier Image (T1, 256×256)", width="stretch")
+                    with col_p2:
+                        st.image(im2_p, caption="Later Image (T2, 256×256)", width="stretch")
+                    with col_p3:
+                        st.image(pred["binary_mask"] * 255, caption=f"Predicted Binary Mask (Threshold ≥ {pred['threshold']})", width="stretch")
+                    with col_p4:
+                        st.image(pred["overlay_img"], caption="Highlighted Change Overlay (Coral Red)", width="stretch")
+
+                    # Distinct Legend
+                    st.markdown("""
+                    <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 10px 14px; margin-top: 10px; font-size: 0.80rem; display: flex; gap: 20px; align-items: center;">
+                        <span style="font-weight: 600; color: #94a3b8;">Legend:</span>
+                        <span><strong style="color: #f5503c;">■ Coral Red:</strong> Predicted Change (Probability ≥ Threshold)</span>
+                        <span><strong style="color: #64748b;">■ Natural Imagery:</strong> Unchanged / Background</span>
+                        <span style="color: #94a3b8;">• Output is a binary change mask only (does not distinguish new construction vs. demolition).</span>
+                    </div>
+                    """, unsafe_allow_html=True)
 
         with tab_report:
             st.subheader("Official Municipal Intelligence Report")
@@ -621,13 +764,18 @@ BUILDING DETECTION METRICS:
 - Built-Up Expansion Density : {det_res['building_density_pct']}% of analyzed ground
 - Minimum Area Floor Filter  : {min_bldg_area} m² (Aspect-Ratio Constrained: 0.2 - 5.0)
 - Operational Verdict        : {'ACTION: Significant New Building Construction' if det_res['building_count'] > 0 else 'STABLE: No Structural Alteration Detected'}
+--------------------------------------------------------------------------------
+EXPERIMENTAL ML MODEL PROVENANCE (S2LOOKING U-NET):
+- Model Architecture        : 6-Channel Bitemporal U-Net (256x256 resolution)
+- Training Dataset          : S2Looking Benchmark Subset (Google Colab, Epoch 2)
+- Benchmark Val F1 / IoU    : 0.2028 / 0.1129 (Exploratory Binary Change Mask Only)
 ================================================================================"""
             st.code(rep_text, language="text")
             st.download_button(
                 "📥 Download Official Municipal Report (.txt)",
                 rep_text,
                 file_name=f"space_netra_{st.session_state['active_area_name'].lower().replace(' ', '_')}_audit.txt",
-                use_container_width=True
+                width="stretch"
             )
 
     else:
@@ -684,7 +832,7 @@ elif app_mode == "🔍 Semantic Archive Search":
                     placeholder="e.g. urban area, harbor and ships, airport runway, forest..."
                 )
             with col_btn:
-                search_clicked = st.button("Search Archive", type="primary", use_container_width=True)
+                search_clicked = st.button("Search Archive", type="primary", width="stretch")
 
             # Sample query chips
             st.caption("Quick search suggestions: `urban area` • `harbor` • `airport` • `stadium` • `forest`")
@@ -709,7 +857,7 @@ elif app_mode == "🔍 Semantic Archive Search":
                             img = Image.open(item["path"])
                             score = round(float(distances[0][i]) * 100.0, 2)
                             with cols[i]:
-                                st.image(img, caption=f"Match Score: {score}% | {item['filename']}", use_container_width=True)
+                                st.image(img, caption=f"Match Score: {score}% | {item['filename']}", width="stretch")
                         else:
                             with cols[i]:
                                 st.warning(f"File missing: {item['filename']}")
