@@ -12,7 +12,7 @@ CITY_HOTSPOTS = {
         "description": "Dense residential, commercial complexes, and modern townships developed northeast of city center.",
         "lat": 19.8856,
         "lon": 75.3689,
-        "zoom": 16,
+        "zoom": 17,
         "category": "Residential & Commercial",
         "key_event": "Rapid apartment block and commercial plaza construction (2016-2026)"
     },
@@ -30,7 +30,7 @@ CITY_HOTSPOTS = {
         "description": "Major manufacturing hub on the western fringe housing auto manufacturing and large warehouse clusters.",
         "lat": 19.8320,
         "lon": 75.2410,
-        "zoom": 16,
+        "zoom": 17,
         "category": "Heavy Industrial & Logistics",
         "key_event": "Large industrial sheds, manufacturing plants, and logistics yards constructed"
     },
@@ -57,7 +57,7 @@ CITY_HOTSPOTS = {
         "description": "Historic and high-density central junction of Chhatrapati Sambhajinagar.",
         "lat": 19.8735,
         "lon": 75.3265,
-        "zoom": 17,
+        "zoom": 16,
         "category": "Core Urban Redevelopment",
         "key_event": "Flyover construction and commercial vertical redevelopment"
     },

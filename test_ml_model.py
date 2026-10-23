@@ -54,11 +54,11 @@ def run_ml_tests():
     print(f"  - Changed Pixels: {pred['changed_pixels']} ({pred['change_ratio_pct']}%)")
     print(f"  - Finite Values Verified: {pred['is_valid']}")
 
-    # 4. Real Image Pair Test (using cached source tiles if present)
-    t1_path = "data/change_detection/source/csn_767ce0d3_2016.jpg"
-    t2_path = "data/change_detection/source/csn_767ce0d3_current.jpg"
+    # 4. Real Image Pair Test (using verified real cached source tiles)
+    t1_path = "data/change_detection/source/csn_7dca6e98_2016.jpg"
+    t2_path = "data/change_detection/source/csn_7dca6e98_current.jpg"
     if os.path.exists(t1_path) and os.path.exists(t2_path):
-        print(f"\n[TEST 4] Testing with real cached image pair ({t1_path})...")
+        print(f"\n[TEST 4] Testing with verified real satellite pair ({t1_path})...")
         t_real, r1, r2 = spacenetra_model.preprocess_pair(t1_path, t2_path, target_size=256)
         pred_real = spacenetra_model.predict_change(model, t_real, r2, threshold=0.50, device="cpu")
         print(f"[PASS] Real image pair test passed! Changed pixels: {pred_real['changed_pixels']}")

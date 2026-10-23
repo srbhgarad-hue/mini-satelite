@@ -249,6 +249,14 @@ if app_mode == "🛰️ Satellite Change Detection":
         help="Threshold for Canny edge gradient dissimilarity."
     )
 
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("<div style='font-size: 0.82rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em;'>Data Provenance Control</div>", unsafe_allow_html=True)
+    allow_demo_mode = st.sidebar.checkbox(
+        "🧪 Allow Synthetic Demo Fallback",
+        value=False,
+        help="If genuine satellite imagery cannot be acquired, permits generating quarantined procedural fallback fixtures in data/synthetic_test_fixtures/. Synthetic data is clearly labeled."
+    )
+
     # Sidebar Status Card
     st.sidebar.markdown("---")
     st.sidebar.markdown(f"""
@@ -413,57 +421,118 @@ if app_mode == "🛰️ Satellite Change Detection":
         st.markdown("</div>", unsafe_allow_html=True)
 
     # ── Run Change Detection Execution ──
-    if run_detection_btn or (st.session_state.get("detection_executed") and st.session_state.get("detection_results") is not None):
+    if run_detection_btn or (st.session_state.get("detection_executed") and st.session_state.get("timeline_results") is not None):
         if run_detection_btn:
             with st.spinner(f"Ingesting multi-epoch photography and extracting building contours for {st.session_state['active_area_name']}..."):
-                timeline = photo_streamer.fetch_3stage_photographic_timeline(cur_lat, cur_lon, zoom=zoom_val)
-                det_res = building_detector.detect_new_buildings(
-                    timeline["p1_path"],
-                    timeline["p3_path"],
-                    gsd_m=timeline["gsd_m"],
-                    min_area_sq_m=float(min_bldg_area),
-                    sensitivity=sensitivity
+                timeline = photo_streamer.fetch_3stage_photographic_timeline(
+                    cur_lat, cur_lon, zoom=zoom_val, allow_synthetic_demo=allow_demo_mode
                 )
                 st.session_state["timeline_results"] = timeline
-                st.session_state["detection_results"] = det_res
                 st.session_state["detection_executed"] = True
-                st.success("Analysis complete. Real photographic building change detection rendered below.")
+
+                if timeline["status"] != "ACQUISITION_FAILED" and timeline.get("p1_path") and timeline.get("p3_path"):
+                    det_res = building_detector.detect_new_buildings(
+                        timeline["p1_path"],
+                        timeline["p3_path"],
+                        gsd_m=timeline["gsd_m"],
+                        min_area_sq_m=float(min_bldg_area),
+                        sensitivity=sensitivity
+                    )
+                    st.session_state["detection_results"] = det_res
+                    st.session_state["acquisition_failed"] = False
+                    if timeline["is_real"]:
+                        st.success("Analysis complete. Verified real optical satellite photography rendered below.")
+                    else:
+                        st.warning("Analysis complete using explicit synthetic demonstration fallback fixtures.")
+                else:
+                    st.session_state["detection_results"] = None
+                    st.session_state["acquisition_failed"] = True
 
         timeline = st.session_state["timeline_results"]
-        det_res = st.session_state["detection_results"]
+        det_res = st.session_state.get("detection_results")
+        acquisition_failed = st.session_state.get("acquisition_failed", False)
 
-        # ── Metrics Row (Phase 6 & 7: Units, Distinguishable Colors, No Clutter) ──
-        st.markdown("---")
-        m1, m2, m3, m4, m5 = st.columns(5)
-        m1.metric("New Buildings Found", f"{det_res['building_count']} Units")
-        m2.metric("New Built Footprint", f"{det_res['total_built_area_sq_m']:,.1f} m²", help="Sum of extracted building contours meeting minimum area floor")
-        m3.metric("Built-Up Density", f"{det_res['building_density_pct']}% of AOI", help="Percentage of analyzed ground occupied by new building roofs")
-        m4.metric("Ground Resolution", f"{det_res['gsd_m']} m/px", help="Metric Ground Sampling Distance for selected zoom level")
-        m5.metric("Expansion Level", "High Growth" if det_res['building_count'] >= 3 else ("Moderate Growth" if det_res['building_count'] > 0 else "Stable Surface"))
+        if acquisition_failed or det_res is None:
+            # ── Honest Acquisition Failure Alert (Phase 3 & 6) ──
+            st.markdown("---")
+            st.error("❌ Optical Satellite Imagery Unavailable for this AOI")
+            st.markdown(f"""
+            <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 8px; padding: 20px; margin: 16px 0;">
+                <h4 style="color: #ef4444; margin-top: 0; font-size: 1.05rem;">🛰️ Remote Satellite Acquisition Incomplete</h4>
+                <p style="font-size: 0.88rem; color: #e2e8f0; margin-bottom: 8px;">
+                    {timeline.get('acquisition_error', 'Authentic optical satellite tiles could not be fetched from the remote provider.')}
+                </p>
+                <p style="font-size: 0.82rem; color: #94a3b8; margin-bottom: 14px;">
+                    <strong>Data Provenance Policy:</strong> Space Netra adheres to strict data integrity standards and refuses to silently substitute synthetic drawings as genuine satellite imagery.
+                </p>
+                <div style="background: rgba(15, 23, 42, 0.7); border-radius: 6px; padding: 14px; font-size: 0.84rem; color: #cbd5e1;">
+                    <strong style="color: #38bdf8;">Recommended Next Steps:</strong>
+                    <ul style="margin: 6px 0 0 18px; padding: 0; line-height: 1.6;">
+                        <li>Select one of the verified pre-cached city growth sectors: <strong>CIDCO Urban Expansion</strong>, <strong>Shendra MIDC</strong>, <strong>Kranti Chowk</strong>, <strong>Railway Station</strong>, <strong>Waluj MIDC</strong>, or <strong>Beed Bypass</strong>.</li>
+                        <li>Or enable <strong>'Allow Synthetic Demo Fallback'</strong> in the sidebar under <em>Data Provenance Control</em> to test the processing pipeline using clearly marked procedural fixtures.</li>
+                    </ul>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
-        # ── Primary Analysis Tabs ──
-        tab_outlines, tab_timeline, tab_inventory, tab_sentinel2, tab_ml_unet, tab_report = st.tabs([
-            "🏢 Building Outlines & Verification",
-            "⏱️ 3-Stage Multi-Year Timeline",
-            "📋 Detected Building Inventory & Dimensions",
-            "🛰️ Sentinel-2 Multispectral Surface Differencing",
-            "🧪 Experimental ML Change Detection",
-            "📄 Municipal Intelligence Report"
-        ])
+        else:
+            # ── Provenance Status Banner ──
+            st.markdown("---")
+            if timeline["is_real"]:
+                st.markdown("""
+                <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 6px; padding: 10px 16px; margin-bottom: 16px;">
+                    <span style="color: #10b981; font-weight: 700; font-size: 0.88rem;">
+                        🟢 VERIFIED REAL SATELLITE IMAGERY — Genuine Historical & Current Optical Observations
+                    </span>
+                    <span style="background: #10b981; color: #0b0f19; font-weight: 700; font-size: 0.70rem; padding: 2px 8px; border-radius: 4px;">
+                        VERIFIED PROVENANCE
+                    </span>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 6px; padding: 10px 16px; margin-bottom: 16px;">
+                    <span style="color: #f59e0b; font-weight: 700; font-size: 0.88rem;">
+                        ⚠️ SYNTHETIC DEMONSTRATION FIXTURE — Procedurally Generated Fallback (Not Real Observation)
+                    </span>
+                    <span style="background: #f59e0b; color: #0b0f19; font-weight: 700; font-size: 0.70rem; padding: 2px 8px; border-radius: 4px;">
+                        SIMULATED TEST FIXTURE
+                    </span>
+                </div>
+                """, unsafe_allow_html=True)
 
-        with tab_outlines:
-            st.subheader("High-Resolution Real Optical Imagery with Labeled New Construction")
-            st.caption("Emerald green vector bounding boxes and badges denote newly constructed building roofs and architectural structures.")
+            # ── Metrics Row (Phase 6 & 7: Units, Distinguishable Colors, No Clutter) ──
+            m1, m2, m3, m4, m5 = st.columns(5)
+            m1.metric("New Buildings Found", f"{det_res['building_count']} Units")
+            m2.metric("New Built Footprint", f"{det_res['total_built_area_sq_m']:,.1f} m²", help="Sum of extracted building contours meeting minimum area floor")
+            m3.metric("Built-Up Density", f"{det_res['building_density_pct']}% of AOI", help="Percentage of analyzed ground occupied by new building roofs")
+            m4.metric("Ground Resolution", f"{det_res['gsd_m']} m/px", help="Metric Ground Sampling Distance for selected zoom level")
+            m5.metric("Expansion Level", "High Growth" if det_res['building_count'] >= 3 else ("Moderate Growth" if det_res['building_count'] > 0 else "Stable Surface"))
 
-            view_mode = st.radio(
-                "Display Overlay Option:",
-                [
-                    "Labeled Emerald Green Outlines on Current Real Photo",
-                    "Thermal Construction Intensity Heatmap",
-                    "Binary Building Footprint Mask"
-                ],
-                horizontal=True
-            )
+            # ── Primary Analysis Tabs ──
+            tab_outlines, tab_timeline, tab_inventory, tab_sentinel2, tab_ml_unet, tab_report = st.tabs([
+                "🏢 Building Outlines & Verification",
+                "⏱️ 3-Stage Multi-Year Timeline",
+                "📋 Detected Building Inventory & Dimensions",
+                "🛰️ Sentinel-2 Multispectral Surface Differencing",
+                "🧪 Experimental ML Change Detection",
+                "📄 Municipal Intelligence Report"
+            ])
+
+            with tab_outlines:
+                provenance_badge = "🟢 Verified Optical Imagery" if timeline["is_real"] else "⚠️ Synthetic Fallback Fixture"
+                st.subheader(f"Optical Imagery with Labeled New Construction ({provenance_badge})")
+                st.caption("Emerald green vector bounding boxes and badges denote newly constructed building roofs and architectural structures.")
+
+                view_mode = st.radio(
+                    "Display Overlay Option:",
+                    [
+                        "Labeled Emerald Green Outlines on Current Real Photo",
+                        "Thermal Construction Intensity Heatmap",
+                        "Binary Building Footprint Mask"
+                    ],
+                    horizontal=True
+                )
 
             col_img1, col_img2 = st.columns(2)
             with col_img1:
@@ -550,6 +619,33 @@ if app_mode == "🛰️ Satellite Change Detection":
 
             try:
                 pairs = satellite_loader.load_temporal_pair()
+                
+                # Provenance Integrity Banner
+                if pairs.get("is_synthetic", False):
+                    st.markdown("""
+                    <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 8px; padding: 14px 18px; margin-bottom: 16px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="font-weight: 700; color: #f59e0b; font-size: 0.92rem;">
+                                ⚠️ SYNTHETIC TEST FIXTURE — Calibrated Simulated 10m Sentinel-2 L2A Multispectral Bands
+                            </span>
+                            <span style="background: #f59e0b; color: #0b0f19; font-weight: 700; font-size: 0.72rem; padding: 2px 8px; border-radius: 4px;">
+                                QUARANTINED BENCHMARK
+                            </span>
+                        </div>
+                        <p style="font-size: 0.82rem; color: #cbd5e1; margin: 8px 0 4px 0;">
+                            <strong>Data Provenance Notice:</strong> Authentic Sentinel-2 Level-2A scene metadata (IDs, timestamps, coordinates) exists in the catalog manifest, but the 10m multispectral rasters displayed below are <strong>synthetic benchmark test arrays</strong> quarantined in <code>data/synthetic_test_fixtures/</code>. They are used to verify cloud masking (SCL), band-differencing math (NDVI/NDBI), and area conservation algorithms. Real Level-2A raster pixels have not yet been downloaded.
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown("""
+                    <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 8px; padding: 14px 18px; margin-bottom: 16px;">
+                        <span style="font-weight: 700; color: #10b981; font-size: 0.92rem;">
+                            🟢 VERIFIED REAL SENTINEL-2 OBSERVATION — Authentic Level-2A BOA Reflectance
+                        </span>
+                    </div>
+                    """, unsafe_allow_html=True)
+
                 t1_clean, t1_mask = preprocessor.clean_scene(pairs["t1_b04"], pairs["t1_b08"], pairs["t1_scl"])
                 t2_clean, t2_mask = preprocessor.clean_scene(pairs["t2_b04"], pairs["t2_b08"], pairs["t2_scl"])
                 scl_combined = preprocessor.combine_masks(t1_mask, t2_mask)
@@ -558,9 +654,11 @@ if app_mode == "🛰️ Satellite Change Detection":
 
                 col_s2_1, col_s2_2 = st.columns(2)
                 with col_s2_1:
-                    st.image(pairs["t1_visual_path"], caption="Sentinel-2 L2A BOA True Color (March 30, 2021)", width="stretch")
+                    t1_caption = "Synthetic Preview T1 (Simulated March 30, 2021 — Benchmark Fixture)" if pairs.get("is_synthetic") else "Sentinel-2 L2A BOA True Color (March 30, 2021)"
+                    st.image(pairs["t1_visual_path"], caption=t1_caption, width="stretch")
                 with col_s2_2:
-                    st.image(pairs["t2_visual_path"], caption="Sentinel-2 L2A BOA True Color (March 14, 2024)", width="stretch")
+                    t2_caption = "Synthetic Preview T2 (Simulated March 14, 2024 — Benchmark Fixture)" if pairs.get("is_synthetic") else "Sentinel-2 L2A BOA True Color (March 14, 2024)"
+                    st.image(pairs["t2_visual_path"], caption=t2_caption, width="stretch")
 
                 st.write("---")
                 sm1, sm2, sm3, sm4 = st.columns(4)
@@ -658,7 +756,8 @@ if app_mode == "🛰️ Satellite Change Detection":
                 if ml_source_mode == "Use Current Active Area Images (Epoch 1 2016 vs. Epoch 3 Current)":
                     input_img1 = timeline["p1_path"]
                     input_img2 = timeline["p3_path"]
-                    provenance_note = f"Analyzing Active Sector: {st.session_state['active_area_name']} | Earlier: {timeline['dates']['epoch_1']} (Esri Wayback) | Later: {timeline['dates']['epoch_3']} (Optical Satellite)"
+                    input_prov = "🟢 Verified Optical Tile" if timeline.get("is_real") else "⚠️ Synthetic Fallback Fixture"
+                    provenance_note = f"Active Sector: {st.session_state['active_area_name']} | Earlier: {timeline['dates']['epoch_1']} | Later: {timeline['dates']['epoch_3']} | Input Provenance: {input_prov}"
                     st.info(f"📍 {provenance_note}")
                 else:
                     st.write("Upload custom Earlier ($T_1$) and Later ($T_2$) images (PNG or JPG):")
@@ -754,6 +853,7 @@ GEOGRAPHIC & SPATIAL PARAMETERS:
 - Metric Ground Sampling     : {det_res['gsd_m']} meters / pixel
 --------------------------------------------------------------------------------
 TEMPORAL IMAGERY PROVENANCE:
+- Provenance Classification : {'VERIFIED_REAL (Authentic Satellite Photography)' if timeline.get('is_real') else 'SYNTHETIC_FALLBACK (Procedural Simulation Test Fixture)'}
 - Epoch 1 (Historical)       : {timeline['dates']['epoch_1']} (Esri World Imagery Wayback)
 - Epoch 2 (Mid-Stage)        : {timeline['dates']['epoch_2']} (Esri World Imagery Wayback)
 - Epoch 3 (Current)          : {timeline['dates']['epoch_3']} (High-Resolution Optical Satellite)
@@ -794,6 +894,9 @@ elif app_mode == "🔍 Semantic Archive Search":
         <p class="app-subtitle">
             Natural-Language Vector Search over Local Satellite Image Patches via OpenAI CLIP (ViT-B/32) and FAISS
         </p>
+        <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; padding: 8px 14px; margin-top: 10px; font-size: 0.78rem; color: #94a3b8;">
+            📁 <strong>Dataset Provenance:</strong> Local archive consists of benchmark remote-sensing scene classification image patches (<code>data/raw/</code>: airport, forest, harbor, stadium, urban) indexed via 512-dimensional CLIP embeddings. Used for semantic visual concept indexing, not temporal physical change detection.
+        </div>
     </div>
     """, unsafe_allow_html=True)
 

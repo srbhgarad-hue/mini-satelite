@@ -2,18 +2,29 @@
 photo_streamer.py
 =================
 High-Resolution Multi-Temporal Photographic Satellite Streamer for Space Netra.
-Fetches real optical aerial/satellite photography across Chhatrapati Sambhajinagar
+Fetches authentic optical aerial/satellite photography across Chhatrapati Sambhajinagar
 for a 3-stage temporal evolution timeline (2016 -> 2020 -> Current 2025/2026).
+
+Data Integrity & Provenance Guarantee:
+- Real satellite observations are cached exclusively in data/change_detection/source/.
+- Synthetic fallback generation is strictly quarantined to data/synthetic_test_fixtures/
+  and will NEVER silently overwrite or masquerade as genuine satellite observations.
+- If live acquisition fails and no genuine cached imagery is present, an explicit
+  acquisition error status is returned unless allow_synthetic_demo=True is requested.
 """
 
 import os
 import math
 import hashlib
 import requests
+import numpy as np
 from PIL import Image, ImageDraw
 
 CACHE_DIR = os.path.join("data", "change_detection", "source")
+SYNTHETIC_FIXTURES_DIR = os.path.join("data", "synthetic_test_fixtures")
+
 os.makedirs(CACHE_DIR, exist_ok=True)
+os.makedirs(SYNTHETIC_FIXTURES_DIR, exist_ok=True)
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -43,24 +54,91 @@ def calculate_ground_resolution(lat_deg, zoom=16):
     meters_per_pixel = (156543.03392 * math.cos(lat_rad)) / (2.0 ** zoom)
     return round(meters_per_pixel, 2)
 
-def fetch_single_tile(url, file_path):
-    """Fetches a single tile image over HTTP with error handling."""
+def is_procedural_synthetic(image_input):
+    """
+    Inspects an image path or PIL image to determine whether it is a procedural
+    synthetic fallback drawing rather than authentic satellite photography.
+    
+    Detection signature:
+    - Located in synthetic_test_fixtures or filename starting with synth_demo_
+    - Flat asphalt road corridor drawn at y=118..124 with road_std < 10.0 and road_mean ~ 60
+    - Exact horizontal road stripe at y=127 with stripe_mean > 180
+    """
+    if isinstance(image_input, str):
+        if not os.path.exists(image_input):
+            return False
+        basename = os.path.basename(image_input)
+        if basename.startswith("synth_demo_") or "synthetic_test_fixtures" in os.path.abspath(image_input):
+            return True
+        try:
+            img = Image.open(image_input)
+        except Exception:
+            return False
+    elif isinstance(image_input, Image.Image):
+        img = image_input
+    else:
+        return False
+
     try:
-        r = requests.get(url, headers=HEADERS, timeout=12)
-        if r.status_code == 200 and len(r.content) > 1000:
-            with open(file_path, "wb") as f:
-                f.write(r.content)
+        arr = np.array(img)
+        if arr.shape != (256, 256, 3):
+            return False
+        
+        band = arr[118:125, :]
+        road_mean = band.mean(axis=(0, 1))
+        road_std = band.std()
+        stripe = arr[127, :]
+        stripe_mean = stripe.mean(axis=0)
+
+        # Procedural fallback signature check
+        if road_std < 10.0 and abs(road_mean[0] - 60) < 15 and stripe_mean[0] > 180:
             return True
     except Exception:
         pass
     return False
 
-def generate_photorealistic_fallback(lat, lon, zoom, epoch, file_path):
+def is_real_tile(image_path):
+    """Returns True if the image exists and is verified non-synthetic satellite photography."""
+    if not os.path.exists(image_path):
+        return False
+    return not is_procedural_synthetic(image_path)
+
+def fetch_single_tile(url, file_path):
+    """Fetches a single tile image over HTTP with error and integrity verification."""
+    try:
+        r = requests.get(url, headers=HEADERS, timeout=12)
+        if r.status_code == 200 and len(r.content) > 1000:
+            with open(file_path, "wb") as f:
+                f.write(r.content)
+            # Verify file integrity after write
+            if is_real_tile(file_path):
+                return True
+            else:
+                # If downloaded content somehow matched procedural pattern, remove it
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+    except Exception:
+        pass
+    return False
+
+def generate_photorealistic_fallback(lat, lon, zoom, epoch, file_path=None):
     """
-    Generates a high-detail photorealistic fallback image representing
-    real urban/industrial development in Chhatrapati Sambhajinagar if offline.
+    Generates a procedural demonstration raster for automated tests and offline simulation.
+    Quarantined exclusively to data/synthetic_test_fixtures/.
+    MUST NOT be saved to the live data/change_detection/source/ directory.
     """
-    # Deterministic seed from location coordinates
+    loc_hash = hashlib.md5(f"{lat:.4f}_{lon:.4f}_{zoom}".encode()).hexdigest()[:8]
+    if file_path is None:
+        file_path = os.path.join(SYNTHETIC_FIXTURES_DIR, f"synth_demo_{loc_hash}_{epoch}.jpg")
+
+    # Safety check: Never allow saving into CACHE_DIR with csn_ prefix
+    norm_path = os.path.abspath(file_path)
+    if os.path.abspath(CACHE_DIR) in norm_path and "synth_demo_" not in os.path.basename(norm_path):
+        raise ValueError(
+            f"Provenance Violation: Attempted to save synthetic fallback into live source cache: {file_path}. "
+            f"Synthetic data must be saved to {SYNTHETIC_FIXTURES_DIR} with 'synth_demo_' prefix."
+        )
+
     seed = int(abs(lat * 1000 + lon * 1000) * 100) % 100000
     import random
     rng = random.Random(seed)
@@ -86,84 +164,128 @@ def generate_photorealistic_fallback(lat, lon, zoom, epoch, file_path):
     draw.rectangle([110, 0, 130, H], fill=(65, 65, 70))
 
     # Building Evolution across Epochs
-    # Epoch 2016: Baseline 2-3 older buildings
     buildings_2016 = [
         (25, 30, 70, 75, (170, 165, 155)),
         (150, 40, 210, 85, (185, 180, 170)),
     ]
-    # Epoch 2020: Additional 2 commercial structures
     buildings_2020 = buildings_2016 + [
         (30, 160, 85, 220, (195, 190, 180)),
-        (160, 165, 225, 215, (210, 150, 130)), # Brick-red warehouse
+        (160, 165, 225, 215, (210, 150, 130)),
     ]
-    # Epoch Current: Major dense expansion (new buildings, concrete roofs, warehouses)
     buildings_current = buildings_2020 + [
-        (85, 25, 135, 70, (230, 225, 215)), # Modern white concrete commercial building
+        (85, 25, 135, 70, (230, 225, 215)),
         (215, 35, 250, 80, (225, 220, 210)),
-        (140, 150, 185, 230, (240, 235, 220)), # New expansion wing
+        (140, 150, 185, 230, (240, 235, 220)),
         (35, 80, 75, 110, (215, 210, 200)),
     ]
 
     selected_buildings = buildings_2016 if epoch == "2016" else (buildings_2020 if epoch == "2020" else buildings_current)
 
     for (bx1, by1, bx2, by2, bcolor) in selected_buildings:
-        # Building shadow
-        draw.rectangle([bx1+3, by1+3, bx2+3, by2+3], fill=(40, 40, 45))
-        # Building roof
-        draw.rectangle([bx1, by1, bx2, by2], fill=bcolor, outline=(90, 85, 80))
-        # Roof structures (HVAC, parapets)
+        draw.rectangle([bx1+3, by1+3, bx2+3, by2+3], fill=(40, 40, 45)) # Shadow
+        draw.rectangle([bx1, by1, bx2, by2], fill=bcolor, outline=(90, 85, 80)) # Roof
         draw.rectangle([bx1+8, by1+8, bx1+18, by1+18], fill=(120, 115, 110))
 
     img.save(file_path, "JPEG", quality=92)
-    return True
+    return file_path
 
-def fetch_3stage_photographic_timeline(lat, lon, zoom=16):
+def fetch_3stage_photographic_timeline(lat, lon, zoom=16, allow_synthetic_demo=False):
     """
     Retrieves the 3-stage temporal photography for Chhatrapati Sambhajinagar:
       - Epoch 1: 2016 Historical (Esri Wayback Archive)
       - Epoch 2: 2020 Mid-Stage (Esri Wayback Archive)
       - Epoch 3: Current 2025/2026 (High-Res Optical Satellite)
+
+    Provenance Guarantees:
+    - If real tiles are cached or successfully fetched, returns status='VERIFIED_REAL'.
+    - If live acquisition fails and allow_synthetic_demo is False (default):
+      returns status='ACQUISITION_FAILED', is_real=False, with explicit error details.
+      Does NOT generate or return artificial scenes masquerading as satellite imagery.
+    - If allow_synthetic_demo is True, generates procedural test fixtures strictly in
+      data/synthetic_test_fixtures/ and marks status='SYNTHETIC_FALLBACK'.
     """
     x, y = deg2num(lat, lon, zoom)
     gsd_m = calculate_ground_resolution(lat, zoom)
-
     loc_hash = hashlib.md5(f"{lat:.4f}_{lon:.4f}_{zoom}".encode()).hexdigest()[:8]
 
     p1_file = os.path.join(CACHE_DIR, f"csn_{loc_hash}_2016.jpg")
     p2_file = os.path.join(CACHE_DIR, f"csn_{loc_hash}_2020.jpg")
     p3_file = os.path.join(CACHE_DIR, f"csn_{loc_hash}_current.jpg")
 
-    # 1. Epoch 1: 2016 Wayback Tile
-    if not os.path.exists(p1_file):
-        m1 = WAYBACK_SNAPSHOTS["2016"]["m_id"]
-        t1_url = f"https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/GoogleMapsCompatible/MapServer/tile/{m1}/{zoom}/{y}/{x}"
-        success = fetch_single_tile(t1_url, p1_file)
-        if not success:
-            generate_photorealistic_fallback(lat, lon, zoom, "2016", p1_file)
+    epoch_configs = [
+        ("p1", "2016", p1_file, WAYBACK_SNAPSHOTS["2016"]["m_id"]),
+        ("p2", "2020", p2_file, WAYBACK_SNAPSHOTS["2020"]["m_id"]),
+        ("p3", "Current", p3_file, None)
+    ]
 
-    # 2. Epoch 2: 2020 Wayback Tile
-    if not os.path.exists(p2_file):
-        m2 = WAYBACK_SNAPSHOTS["2020"]["m_id"]
-        t2_url = f"https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/GoogleMapsCompatible/MapServer/tile/{m2}/{zoom}/{y}/{x}"
-        success = fetch_single_tile(t2_url, p2_file)
-        if not success:
-            generate_photorealistic_fallback(lat, lon, zoom, "2020", p2_file)
+    resolved_paths = {}
+    epoch_real_flags = {}
+    missing_epochs = []
 
-    # 3. Epoch 3: Current Satellite Basemap
-    if not os.path.exists(p3_file):
-        t3_url = f"https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={zoom}"
-        success = fetch_single_tile(t3_url, p3_file)
-        if not success:
-            generate_photorealistic_fallback(lat, lon, zoom, "Current", p3_file)
+    for key, epoch, target_file, m_id in epoch_configs:
+        # Check if already cached and verified genuine
+        if is_real_tile(target_file):
+            resolved_paths[key] = target_file
+            epoch_real_flags[key] = True
+            continue
+
+        # Attempt remote acquisition
+        if epoch == "Current":
+            url = f"https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={zoom}"
+        else:
+            url = f"https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/GoogleMapsCompatible/MapServer/tile/{m_id}/{zoom}/{y}/{x}"
+
+        success = fetch_single_tile(url, target_file)
+        if success and is_real_tile(target_file):
+            resolved_paths[key] = target_file
+            epoch_real_flags[key] = True
+        else:
+            # Live acquisition failed
+            if allow_synthetic_demo:
+                # Quarantined synthetic fallback for testing / demonstration
+                synth_path = os.path.join(SYNTHETIC_FIXTURES_DIR, f"synth_demo_{loc_hash}_{epoch}.jpg")
+                generate_photorealistic_fallback(lat, lon, zoom, epoch, synth_path)
+                resolved_paths[key] = synth_path
+                epoch_real_flags[key] = False
+            else:
+                resolved_paths[key] = None
+                epoch_real_flags[key] = False
+                missing_epochs.append(epoch)
+
+    # Determine overall status and provenance
+    all_real = len(epoch_real_flags) == 3 and all(epoch_real_flags.values())
+    any_synthetic = any(not flag for flag in epoch_real_flags.values() if flag is not None)
+
+    if all_real:
+        status = "VERIFIED_REAL"
+        provenance = "VERIFIED_REAL"
+        provenance_label = "🟢 Verified Optical Satellite Imagery"
+        acq_error = None
+    elif allow_synthetic_demo:
+        status = "SYNTHETIC_FALLBACK"
+        provenance = "SYNTHETIC"
+        provenance_label = "⚠️ Synthetic Demonstration Fixture (Simulated Fallback)"
+        acq_error = "Real satellite acquisition was unavailable; procedural demonstration fixtures were generated by explicit user request."
+    else:
+        status = "ACQUISITION_FAILED"
+        provenance = "UNAVAILABLE"
+        provenance_label = "❌ Satellite Imagery Unavailable"
+        acq_error = f"Real optical satellite imagery could not be retrieved from provider for epochs: {', '.join(missing_epochs)} at Lat: {lat:.4f}, Lon: {lon:.4f}. Synthetic fallbacks are disabled in live production mode."
 
     return {
-        "p1_path": p1_file,
-        "p2_path": p2_file,
-        "p3_path": p3_file,
+        "status": status,
+        "is_real": all_real,
+        "provenance": provenance,
+        "provenance_label": provenance_label,
+        "acquisition_error": acq_error,
+        "p1_path": resolved_paths.get("p1"),
+        "p2_path": resolved_paths.get("p2"),
+        "p3_path": resolved_paths.get("p3"),
         "gsd_m": gsd_m,
         "zoom": zoom,
         "x": x,
         "y": y,
+        "loc_hash": loc_hash,
         "dates": {
             "epoch_1": WAYBACK_SNAPSHOTS["2016"]["date"],
             "epoch_2": WAYBACK_SNAPSHOTS["2020"]["date"],

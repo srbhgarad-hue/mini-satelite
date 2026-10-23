@@ -1,4 +1,10 @@
 {
+  "provenance_classification": {
+    "pixel_provenance": "SYNTHETIC_SIMULATED_RASTER",
+    "metadata_provenance": "VERIFIED_COPERNICUS_STAC_METADATA",
+    "is_synthetic": true,
+    "provenance_warning": "CRITICAL DATA INTEGRITY NOTICE: While the scene identifiers, acquisition timestamps, and Microsoft Planetary Computer asset URLs below represent genuine Sentinel-2 Level-2A products, the associated 10m raster pixel values (t1_b04, t1_b08, t1_scl, t2_b04, etc.) are synthetic benchmark arrays generated using statistical reflectance distributions for pipeline development and testing. They must NOT be treated as authentic physical satellite observations."
+  },
   "aoi": {
     "name": "Shendra MIDC Expansion Corridor, Chhatrapati Sambhajinagar",
     "bbox_wgs84": [
@@ -52,5 +58,5 @@
     "B08 (NIR)",
     "SCL (Scene Classification)"
   ],
-  "processing_level": "Level-2A Bottom-of-Atmosphere (BOA) Surface Reflectance"
+  "processing_level": "Level-2A Bottom-of-Atmosphere (BOA) Surface Reflectance (Simulated Pixel Grid)"
 }
