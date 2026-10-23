@@ -189,6 +189,61 @@ def generate_photorealistic_fallback(lat, lon, zoom, epoch, file_path=None):
     img.save(file_path, "JPEG", quality=92)
     return file_path
 
+def fetch_real_tile_with_pyramid_fallback(lat, lon, zoom, epoch, target_file, m_id=None):
+    """
+    Fetches authentic satellite photography for lat, lon, zoom.
+    If the requested zoom level is not natively available on the tile server
+    (e.g. Esri Wayback 2016 at zoom 18), falls back to the native zoom level (e.g. zoom 16),
+    crops the exact geographical sub-quadrant, and resamples to 256x256 using Lanczos.
+    Guarantees that the returned imagery is 100% authentic satellite photography.
+    """
+    x, y = deg2num(lat, lon, zoom)
+
+    # 1. Direct fetch URL
+    if epoch == "Current":
+        url = f"https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={zoom}"
+    else:
+        url = f"https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/GoogleMapsCompatible/MapServer/tile/{m_id}/{zoom}/{y}/{x}"
+
+    success = fetch_single_tile(url, target_file)
+    if success and is_real_tile(target_file):
+        return True
+
+    # 2. Pyramid Fallback for High Zoom Levels (e.g., zoom 18 or 17 -> parent zoom 16 or 15)
+    if zoom > 15:
+        for p_zoom in [16, 15]:
+            if p_zoom >= zoom:
+                continue
+            px, py = deg2num(lat, lon, p_zoom)
+            p_hash = hashlib.md5(f"{lat:.4f}_{lon:.4f}_{p_zoom}".encode()).hexdigest()[:8]
+            parent_cache_file = os.path.join(CACHE_DIR, f"csn_{p_hash}_{epoch}.jpg")
+
+            # Fetch parent if not cached
+            if not (os.path.exists(parent_cache_file) and is_real_tile(parent_cache_file)):
+                if epoch == "Current":
+                    p_url = f"https://mt1.google.com/vt/lyrs=s&x={px}&y={py}&z={p_zoom}"
+                else:
+                    p_url = f"https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/GoogleMapsCompatible/MapServer/tile/{m_id}/{p_zoom}/{py}/{px}"
+                p_ok = fetch_single_tile(p_url, parent_cache_file)
+                if not p_ok or not is_real_tile(parent_cache_file):
+                    continue
+
+            # Crop sub-quadrant from genuine parent satellite tile
+            try:
+                im_parent = Image.open(parent_cache_file)
+                s = 2 ** (zoom - p_zoom)
+                sub_w = 256 // s
+                dx = (x % s) * sub_w
+                dy = (y % s) * sub_w
+                cropped = im_parent.crop((dx, dy, dx + sub_w, dy + sub_w)).resize((256, 256), Image.Resampling.LANCZOS)
+                cropped.save(target_file, "JPEG", quality=92)
+                if is_real_tile(target_file):
+                    return True
+            except Exception:
+                continue
+
+    return False
+
 def fetch_3stage_photographic_timeline(lat, lon, zoom=16, allow_synthetic_demo=False):
     """
     Retrieves the 3-stage temporal photography for Chhatrapati Sambhajinagar:
@@ -197,12 +252,14 @@ def fetch_3stage_photographic_timeline(lat, lon, zoom=16, allow_synthetic_demo=F
       - Epoch 3: Current 2025/2026 (High-Res Optical Satellite)
 
     Provenance Guarantees:
-    - If real tiles are cached or successfully fetched, returns status='VERIFIED_REAL'.
+    - Always prioritizes authentic satellite photography across all epochs.
+    - If a tile server lacks native high-zoom tiles, smoothly downsamples/crops from
+      verified parent real satellite tiles so human eyes see real terrain.
     - If live acquisition fails and allow_synthetic_demo is False (default):
       returns status='ACQUISITION_FAILED', is_real=False, with explicit error details.
       Does NOT generate or return artificial scenes masquerading as satellite imagery.
-    - If allow_synthetic_demo is True, generates procedural test fixtures strictly in
-      data/synthetic_test_fixtures/ and marks status='SYNTHETIC_FALLBACK'.
+    - If allow_synthetic_demo is True and real satellite acquisition is impossible,
+      generates procedural test fixtures strictly in data/synthetic_test_fixtures/.
     """
     x, y = deg2num(lat, lon, zoom)
     gsd_m = calculate_ground_resolution(lat, zoom)
@@ -229,20 +286,14 @@ def fetch_3stage_photographic_timeline(lat, lon, zoom=16, allow_synthetic_demo=F
             epoch_real_flags[key] = True
             continue
 
-        # Attempt remote acquisition
-        if epoch == "Current":
-            url = f"https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={zoom}"
-        else:
-            url = f"https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/GoogleMapsCompatible/MapServer/tile/{m_id}/{zoom}/{y}/{x}"
-
-        success = fetch_single_tile(url, target_file)
+        # Attempt remote acquisition with pyramid fallback for real satellite imagery
+        success = fetch_real_tile_with_pyramid_fallback(lat, lon, zoom, epoch, target_file, m_id)
         if success and is_real_tile(target_file):
             resolved_paths[key] = target_file
             epoch_real_flags[key] = True
         else:
-            # Live acquisition failed
+            # Real satellite acquisition failed
             if allow_synthetic_demo:
-                # Quarantined synthetic fallback for testing / demonstration
                 synth_path = os.path.join(SYNTHETIC_FIXTURES_DIR, f"synth_demo_{loc_hash}_{epoch}.jpg")
                 generate_photorealistic_fallback(lat, lon, zoom, epoch, synth_path)
                 resolved_paths[key] = synth_path

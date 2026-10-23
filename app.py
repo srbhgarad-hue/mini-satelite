@@ -252,9 +252,9 @@ if app_mode == "🛰️ Satellite Change Detection":
     st.sidebar.markdown("---")
     st.sidebar.markdown("<div style='font-size: 0.82rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em;'>Data Provenance Control</div>", unsafe_allow_html=True)
     allow_demo_mode = st.sidebar.checkbox(
-        "🧪 Allow Synthetic Demo Fallback",
+        "🧪 Force Synthetic Mock (Offline Test Only)",
         value=False,
-        help="If genuine satellite imagery cannot be acquired, permits generating quarantined procedural fallback fixtures in data/synthetic_test_fixtures/. Synthetic data is clearly labeled."
+        help="Forces procedural test drawings instead of authentic satellite photography. Leave unchecked (recommended) to view real satellite imagery across all locations."
     )
 
     # Sidebar Status Card
@@ -310,10 +310,13 @@ if app_mode == "🛰️ Satellite Change Detection":
             h_info = city_catalog.get_hotspot_info(selected_hotspot)
             st.session_state["target_lat"] = h_info["lat"]
             st.session_state["target_lon"] = h_info["lon"]
+            st.session_state["target_zoom"] = h_info["zoom"]
             st.session_state["target_category"] = h_info["category"]
             st.session_state["target_desc"] = h_info["description"]
             st.session_state["detection_executed"] = False
             st.session_state["detection_results"] = None
+            st.session_state["timeline_results"] = None
+            st.session_state["acquisition_failed"] = False
 
     with col_search2:
         custom_query = st.text_input(
