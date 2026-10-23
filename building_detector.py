@@ -88,20 +88,20 @@ def detect_new_buildings(img_t1_path, img_t3_path, gsd_m=2.24, min_area_sq_m=50.
                     "Confidence": f"{min(98.5, round(75.0 + (area_px / 10.0), 1))}%"
                 })
 
-                # A. Draw Neon Yellow Outer Bounding Box
-                cv2.rectangle(annotated_img, (x, y), (x + w, y + h), (0, 255, 255), 2)
+                # A. Draw High-Visibility Emerald Green Bounding Box (BGR: 45, 215, 80)
+                cv2.rectangle(annotated_img, (x, y), (x + w, y + h), (45, 215, 80), 2)
 
                 # B. Translucent Fill on New Building
                 sub = annotated_img[y:y+h, x:x+w]
-                highlight_fill = np.full_like(sub, (0, 220, 255)) # Warm yellow-cyan in BGR
+                highlight_fill = np.full_like(sub, (35, 180, 70)) # Emerald green in BGR
                 annotated_img[y:y+h, x:x+w] = cv2.addWeighted(sub, 0.70, highlight_fill, 0.30, 0)
 
                 # C. Prominent Badge Tag Background
                 label_text = f"NEW BLDG #{b_id}"
                 (tw, th), _ = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.40, 1)
-                cv2.rectangle(annotated_img, (x, max(0, y - 18)), (x + tw + 6, max(18, y)), (15, 15, 20), -1)
-                # Badge Text (Neon Yellow)
-                cv2.putText(annotated_img, label_text, (x + 3, max(13, y - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.40, (0, 255, 255), 1)
+                cv2.rectangle(annotated_img, (x, max(0, y - 18)), (x + tw + 6, max(18, y)), (15, 20, 18), -1)
+                # Badge Text (Emerald Green)
+                cv2.putText(annotated_img, label_text, (x + 3, max(13, y - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.40, (45, 215, 80), 1)
 
     # Thermal Heatmap Overlay for alternative inspection
     heatmap = cv2.applyColorMap(combined, cv2.COLORMAP_JET)
