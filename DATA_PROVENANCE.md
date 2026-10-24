@@ -53,7 +53,8 @@ Every relevant asset group in Space Netra is classified into one of three strict
 | `data/change_detection/manifests/provenance_manifest.json` | `VERIFIED_REAL_METADATA` / `SYNTHETIC_PIXELS` | JSON Metadata | STAC query to Microsoft Planetary Computer for Sentinel-2 Level-2A granules | Scene metadata is genuine; Pixel arrays are synthetic | Yes (with explicit integrity disclaimer) | Yes | Incorporate SHA-256 hashes of authentic downloaded raster assets once operational. |
 | `data/raw/*.png` (`airport`, `forest`, `harbor`, `stadium`, `urban`) | `UNKNOWN` | RGB PNG Patches | Benchmark scene classification datasets (e.g. UC Merced / NWPU-RESISC45) | Generic scene patches; No Chh. Sambhajinagar georeferencing | Allowed in Semantic Archive Search ONLY (with archive badge) | Yes | Link to original academic benchmark DOI. Not applicable for municipal change detection. |
 | `vector_db/spatial.index` & `metadata.npy` | `UNKNOWN_SOURCE_EMBEDDINGS` | FAISS Index & NumPy Array | 512-d CLIP ViT-B/32 embeddings computed over `data/raw/*.png` | N/A (Feature space only) | Yes, for text-to-image semantic matching | Yes | Preserved for natural language search. |
-| `models/spacenetra_s2looking_unet.pth` | `EXPERIMENTAL_MODEL` | PyTorch State Dict (256KB) | Trained in Google Colab on 500 bitemporal pairs from S2Looking benchmark dataset (Epoch 2) | Benchmark dataset coords (Rural/urban global pairs) | Output displayed ONLY as 🧪 Experimental Model Inference | Yes (Unit testing model loading & tensor math) | Retrain on local multi-temporal Chhatrapati Sambhajinagar annotations and publish full test set confusion matrix. |
+| `models/spacenetra_s2looking_unet_fulltrain_best.pth` | `EXPERIMENTAL_MODEL` | PyTorch State Dict (7.8MB) | Trained in Google Colab on all 3,500 bitemporal pairs from S2Looking benchmark dataset (Epoch 9). Val F1: 0.3910, IoU: 0.2430; Held-out Test F1: 0.3475, IoU: 0.2103 | S2Looking benchmark dataset coords | Output displayed ONLY as 🧪 Experimental Model Inference | Yes (Unit testing model loading & tensor math) | Benchmark model. Retrain on local multi-temporal Chhatrapati Sambhajinagar annotations and publish full test set confusion matrix. |
+| `models/spacenetra_s2looking_unet.pth` | `EXPERIMENTAL_MODEL` | PyTorch State Dict (7.8MB) | Preserved baseline checkpoint trained in Google Colab on 500 bitemporal pairs from S2Looking (Epoch 2). Val F1: 0.2028, IoU: 0.1129 | Benchmark dataset coords | Retained as baseline model archive | Yes (Regression testing) | Preserved for baseline comparisons. |
 
 ---
 
@@ -121,9 +122,11 @@ The Streamlit dashboard (`app.py`) enforces clear, unmistakable provenance label
    * Prominent Amber banner: `⚠️ SYNTHETIC TEST FIXTURE — Calibrated Simulated 10m Sentinel-2 L2A Multispectral Bands`
    * Image captions clearly state `Synthetic Preview T1/T2 (Simulated 10m Sentinel-2 Benchmark)`.
 5. **Experimental ML Change Detection (Tab 5):**
-   * Clear provenance badge: `🧪 EXPERIMENTAL MODEL INFERENCE (AI Prediction Output — Not Verified Ground Observation)`
+   * Clear provenance badge: `⚠️ EXPERIMENTAL RESEARCH PREVIEW — S2Looking Bitemporal U-Net` with `FULL TRAIN CHECKPOINT (EPOCH 9)`.
+   * Displays dataset-level benchmark results (Validation: Precision 0.4403, Recall 0.3516, F1 0.3910, IoU 0.2430; Held-Out Test: Precision 0.3829, Recall 0.3181, F1 0.3475, IoU 0.2103).
+   * Explicitly disclaims that metrics are dataset-level benchmarks across standard S2Looking evaluation sets, NOT localized accuracy for Chhatrapati Sambhajinagar or the selected geographic area.
    * Inputs labeled with their exact provenance (`🟢 Verified Optical Tile` vs `⚠️ Synthetic Fixture`).
-   * Explains that output is a binary probability mask from an exploratory model trained on S2Looking benchmark data.
+   * Explains that output is a binary probability mask only and does not distinguish new construction vs demolition.
 6. **Municipal Audit Report (Tab 6):**
    * Plaintext export includes explicit provenance field:
      `Provenance Classification: VERIFIED_REAL (Authentic Satellite Photography)` or `SYNTHETIC_FALLBACK`.

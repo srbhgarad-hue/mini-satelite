@@ -129,11 +129,18 @@ def test_provenance_manifest_honesty():
     print("[PASS] Provenance manifest verified: Declares synthetic pixel status alongside authentic metadata.")
 
 def test_checkpoint_and_vector_db_intact():
-    """Verify that the trained ML checkpoint and vector database were completely preserved."""
-    ckpt_path = "models/spacenetra_s2looking_unet.pth"
-    assert os.path.exists(ckpt_path), f"Checkpoint missing: {ckpt_path}"
-    assert os.path.getsize(ckpt_path) > 200000, "Checkpoint file truncated"
+    """Verify that both the new full-train checkpoint and original checkpoint, plus vector database, are preserved."""
+    # 1. New Full-Train Checkpoint
+    new_ckpt = "models/spacenetra_s2looking_unet_fulltrain_best.pth"
+    assert os.path.exists(new_ckpt), f"New checkpoint missing: {new_ckpt}"
+    assert os.path.getsize(new_ckpt) > 2_000_000, f"New checkpoint file truncated: {os.path.getsize(new_ckpt)} bytes"
 
+    # 2. Original Baseline Checkpoint
+    orig_ckpt = "models/spacenetra_s2looking_unet.pth"
+    assert os.path.exists(orig_ckpt), f"Original checkpoint missing: {orig_ckpt}"
+    assert os.path.getsize(orig_ckpt) > 2_000_000, f"Original checkpoint truncated: {os.path.getsize(orig_ckpt)} bytes"
+
+    # 3. Vector Database & Backup
     vdb_path = "vector_db/spatial.index"
     vmeta_path = "vector_db/metadata.npy"
     assert os.path.exists(vdb_path), f"FAISS index missing: {vdb_path}"
@@ -141,7 +148,7 @@ def test_checkpoint_and_vector_db_intact():
 
     vdb_bak = "vector_db_backup/spatial.index"
     assert os.path.exists(vdb_bak), "Vector DB backup missing"
-    print("[PASS] Model checkpoint and vector database verified intact and untouched.")
+    print("[PASS] Both model checkpoints and vector database verified intact and untouched.")
 
 def run_all_provenance_tests():
     print("==================================================================")

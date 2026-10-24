@@ -14,7 +14,8 @@ from PIL import Image
 import torch
 import torch.nn as nn
 
-DEFAULT_CHECKPOINT_PATH = os.path.join("models", "spacenetra_s2looking_unet.pth")
+ORIGINAL_CHECKPOINT_PATH = os.path.join("models", "spacenetra_s2looking_unet.pth")
+DEFAULT_CHECKPOINT_PATH = os.path.join("models", "spacenetra_s2looking_unet_fulltrain_best.pth")
 
 
 def conv_block(in_channels: int, out_channels: int) -> nn.Sequential:
@@ -106,17 +107,28 @@ def load_model(
         model.eval()
 
         metadata = {
-            "epoch": checkpoint.get("epoch", 2),
+            "checkpoint_path": checkpoint_path,
+            "epoch": checkpoint.get("epoch", 9),
             "image_size": checkpoint.get("image_size", 256),
             "input_channels": checkpoint.get("input_channels", 6),
             "output_channels": checkpoint.get("output_channels", 1),
+            "training_pairs": checkpoint.get("training_pairs", 3500),
+            "validation_pairs": checkpoint.get("validation_pairs", 500),
             "validation_metrics": checkpoint.get("validation_metrics", {
-                "precision": 0.2993,
-                "recall": 0.1534,
-                "f1": 0.2028,
-                "iou": 0.1129,
-                "loss": 1.1263
+                "precision": 0.4403,
+                "recall": 0.3516,
+                "f1": 0.3910,
+                "iou": 0.2430,
+                "loss": 0.7941
             }),
+            "heldout_test_metrics": {
+                "test_pairs": 1000,
+                "precision": 0.3829,
+                "recall": 0.3181,
+                "f1": 0.3475,
+                "iou": 0.2103
+            },
+            "is_experimental": True,
             "device": device
         }
 
@@ -172,28 +184,15 @@ def preprocess_pair(
     return tensor, im1_resized, im2_resized
 
 
-def predict_change(
-    model: SpaceNetraUNet,
-    tensor_6ch: torch.Tensor,
+def apply_threshold_to_prob_map(
+    prob_map: np.ndarray,
     later_pil: Image.Image,
-    threshold: float = 0.50,
-    device: str = "cpu"
+    threshold: float = 0.50
 ) -> Dict:
     """
-    Executes inference with the trained U-Net:
-    1. Runs model forward pass.
-    2. Applies sigmoid to output logits.
-    3. Creates binary mask using threshold (default 0.50).
-    4. Generates a highlighted overlay on the later image.
+    Applies a decision threshold to an existing probability map without re-running model forward pass.
+    Ensures that UI threshold adjustments and binary mask generation are always strictly identical.
     """
-    model.eval()
-    tensor_input = tensor_6ch.to(device)
-
-    with torch.no_grad():
-        logits = model(tensor_input)
-        probs = torch.sigmoid(logits)
-
-    prob_map = probs.squeeze().cpu().numpy().astype(np.float32)
     binary_mask = (prob_map >= threshold).astype(np.uint8)
 
     # Create visual overlay: highlight predicted change in Coral/Amber (#F59E0B / #EF4444)
@@ -221,3 +220,28 @@ def predict_change(
         "threshold": threshold,
         "is_valid": bool(np.isfinite(prob_map).all())
     }
+
+
+def predict_change(
+    model: SpaceNetraUNet,
+    tensor_6ch: torch.Tensor,
+    later_pil: Image.Image,
+    threshold: float = 0.50,
+    device: str = "cpu"
+) -> Dict:
+    """
+    Executes inference with the trained U-Net:
+    1. Runs model forward pass.
+    2. Applies sigmoid to output logits.
+    3. Creates binary mask using threshold (default 0.50).
+    4. Generates a highlighted overlay on the later image.
+    """
+    model.eval()
+    tensor_input = tensor_6ch.to(device)
+
+    with torch.no_grad():
+        logits = model(tensor_input)
+        probs = torch.sigmoid(logits)
+
+    prob_map = probs.squeeze().cpu().numpy().astype(np.float32)
+    return apply_threshold_to_prob_map(prob_map, later_pil, threshold=threshold)

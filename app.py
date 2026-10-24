@@ -707,27 +707,37 @@ if app_mode == "🛰️ Satellite Change Detection":
 
             # Honest Model-Status Notice (Sections 4 & 5)
             st.markdown("""
-            <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 14px 18px; margin-bottom: 18px;">
-                <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 16px 20px; margin-bottom: 18px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
                     <span style="font-weight: 700; color: #f59e0b; font-size: 0.95rem;">
                         ⚠️ EXPERIMENTAL RESEARCH PREVIEW — S2Looking Bitemporal U-Net
                     </span>
-                    <span style="background: #f59e0b; color: #0b0f19; font-weight: 700; font-size: 0.72rem; padding: 2px 8px; border-radius: 4px;">
-                        EPOCH 2 CHECKPOINT
+                    <span style="background: #10b981; color: #064e3b; font-weight: 700; font-size: 0.72rem; padding: 3px 10px; border-radius: 4px;">
+                        FULL TRAIN CHECKPOINT (EPOCH 9)
                     </span>
                 </div>
-                <p style="font-size: 0.82rem; color: #cbd5e1; margin: 8px 0 10px 0;">
-                    This deep-learning model was trained in Google Colab on a sampled subset (500 train pairs, 100 val pairs) of the <strong>S2Looking</strong> satellite building change benchmark. Validation metrics indicate preliminary, exploratory detection capability. Output is a <strong>binary change probability mask only</strong> (it does not distinguish construction from demolition).
+                <p style="font-size: 0.82rem; color: #cbd5e1; margin: 10px 0 12px 0; line-height: 1.5;">
+                    This deep-learning model was trained using all <strong>3,500 training pairs</strong> of the <strong>S2Looking</strong> satellite building change benchmark, with model selection on <strong>500 validation pairs</strong> and final evaluation on <strong>1,000 held-out test pairs</strong>. Output is an exploratory <strong>binary change probability mask only</strong>. Model predictions reflect pixel-level change probabilities and do <strong>not</strong> constitute confirmed new construction, demolition, or verified municipal change.
                 </p>
-                <div style="display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.80rem; color: #94a3b8;">
-                    <span>Benchmark Precision: <strong style="color: #f8fafc;">0.2993</strong></span>
-                    <span>Recall: <strong style="color: #f8fafc;">0.1534</strong></span>
-                    <span>Validation F1: <strong style="color: #f8fafc;">0.2028</strong></span>
-                    <span>Validation IoU: <strong style="color: #f8fafc;">0.1129</strong></span>
-                    <span>Loss: <strong style="color: #f8fafc;">1.1263</strong></span>
+                <div style="background: rgba(15, 23, 42, 0.6); border-radius: 6px; padding: 12px 16px; margin-bottom: 10px;">
+                    <div style="font-size: 0.76rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #38bdf8; margin-bottom: 8px;">
+                        Dataset-Level Benchmark Results (S2Looking Benchmark Evaluation):
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; font-size: 0.80rem; color: #94a3b8;">
+                        <div style="background: rgba(30, 41, 59, 0.5); padding: 10px 14px; border-radius: 6px; border-left: 3px solid #38bdf8;">
+                            <div style="font-weight: 600; color: #e2e8f0; margin-bottom: 4px;">Validation Set (500 Pairs)</div>
+                            <div>Precision: <strong style="color: #f8fafc;">0.4403</strong> &nbsp;|&nbsp; Recall: <strong style="color: #f8fafc;">0.3516</strong></div>
+                            <div>F1 Score: <strong style="color: #10b981;">0.3910</strong> &nbsp;|&nbsp; IoU: <strong style="color: #10b981;">0.2430</strong></div>
+                        </div>
+                        <div style="background: rgba(30, 41, 59, 0.5); padding: 10px 14px; border-radius: 6px; border-left: 3px solid #f59e0b;">
+                            <div style="font-weight: 600; color: #e2e8f0; margin-bottom: 4px;">Held-Out Test Set (1,000 Pairs)</div>
+                            <div>Precision: <strong style="color: #f8fafc;">0.3829</strong> &nbsp;|&nbsp; Recall: <strong style="color: #f8fafc;">0.3181</strong></div>
+                            <div>F1 Score: <strong style="color: #f59e0b;">0.3475</strong> &nbsp;|&nbsp; IoU: <strong style="color: #f59e0b;">0.2103</strong></div>
+                        </div>
+                    </div>
                 </div>
-                <div style="font-size: 0.74rem; color: #64748b; margin-top: 6px;">
-                    * Note: These are benchmark validation results across 100 test pairs, not performance measurements for the currently selected AOI.
+                <div style="font-size: 0.74rem; color: #94a3b8; font-style: italic;">
+                    * Critical Notice: These metrics are dataset-level evaluation benchmarks across standard S2Looking evaluation sets, NOT accuracy or performance measurements for Chhatrapati Sambhajinagar or the selected geographic area.
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -808,6 +818,13 @@ if app_mode == "🛰️ Satellite Change Detection":
                         st.session_state["ml_provenance"] = provenance_note
 
                 if "ml_last_pred" in st.session_state and st.session_state["ml_last_pred"] is not None:
+                    # Synchronize UI threshold with binary mask: re-apply dynamically if slider value changed
+                    if st.session_state["ml_last_pred"].get("threshold") != thresh_val:
+                        st.session_state["ml_last_pred"] = spacenetra_model.apply_threshold_to_prob_map(
+                            st.session_state["ml_last_pred"]["prob_map"],
+                            st.session_state["ml_im2_prep"],
+                            threshold=thresh_val
+                        )
                     pred = st.session_state["ml_last_pred"]
                     im1_p = st.session_state["ml_im1_prep"]
                     im2_p = st.session_state["ml_im2_prep"]
@@ -870,8 +887,10 @@ BUILDING DETECTION METRICS:
 --------------------------------------------------------------------------------
 EXPERIMENTAL ML MODEL PROVENANCE (S2LOOKING U-NET):
 - Model Architecture        : 6-Channel Bitemporal U-Net (256x256 resolution)
-- Training Dataset          : S2Looking Benchmark Subset (Google Colab, Epoch 2)
-- Benchmark Val F1 / IoU    : 0.2028 / 0.1129 (Exploratory Binary Change Mask Only)
+- Training Dataset          : S2Looking Full Dataset (3,500 Train, 500 Val, Epoch 9 Checkpoint)
+- Benchmark Val F1 / IoU    : 0.3910 / 0.2430 (Validation Set: 500 pairs)
+- Held-Out Test F1 / IoU    : 0.3475 / 0.2103 (Held-Out Test Set: 1,000 pairs)
+- Operational Caveat        : Dataset-level benchmarks only. Exploratory binary change probability mask, not verified construction/demolition.
 ================================================================================"""
             st.code(rep_text, language="text")
             st.download_button(
