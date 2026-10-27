@@ -363,6 +363,64 @@ def test_traditional_detection_and_semantic_search():
     print(f"  [PASS] Semantic search operational: retrieved top match '{meta[idxs[0][0]]['filename']}' (Score: {dist[0][0]*100:.1f}%)")
 
 
+def test_threshold_sensitivity_diagnostic_and_registration(model_full, model_init):
+    print("\n------------------------------------------------------------------")
+    print("[TEST 10] Input Consistency & Threshold Sensitivity Diagnostics")
+    print("------------------------------------------------------------------")
+    f1 = "data/change_detection/source/csn_ccbdd603_2016.jpg"
+    f2 = "data/change_detection/source/csn_ccbdd603_current.jpg"
+    assert os.path.exists(f1), f"Sample image missing: {f1}"
+    assert os.path.exists(f2), f"Sample image missing: {f2}"
+
+    # 1. Alignment diagnostic test
+    print("  Testing 2D FFT phase correlation registration diagnostics...")
+    align_res = spacenetra_model.verify_input_consistency_and_alignment(f1, f2)
+    assert align_res["compatible_framing"] is True, "Expected compatible framing"
+    assert align_res["orig_size_earlier"] == (256, 256), "Expected 256x256 earlier size"
+    assert align_res["orig_size_later"] == (256, 256), "Expected 256x256 later size"
+    assert align_res["displacement_magnitude_px"] == 2.63, f"Expected 2.63px displacement, got {align_res['displacement_magnitude_px']}"
+    assert align_res["dx_pixels"] == 2.28, f"Expected dx=2.28, got {align_res['dx_pixels']}"
+    assert align_res["dy_pixels"] == -1.30, f"Expected dy=-1.30, got {align_res['dy_pixels']}"
+    assert align_res["alignment_status"] == "MODERATE_PARALLAX_SHIFT", f"Unexpected status: {align_res['alignment_status']}"
+    assert align_res["pearson_correlation_r"] > 0.85, f"Expected high spatial correlation, got {align_res['pearson_correlation_r']}"
+    print(f"  [PASS] Alignment diagnostic confirmed: shift={align_res['displacement_magnitude_px']}px, status={align_res['alignment_status']}.")
+
+    # 2. Threshold sensitivity diagnostic on identical probability maps
+    print("  Testing threshold sensitivity diagnostics across [0.10, 0.20, 0.30, 0.40, 0.50, 0.65]...")
+    tensor_6ch, im1_p, im2_p = spacenetra_model.preprocess_pair(f1, f2)
+    
+    with torch.no_grad():
+        probs_full = torch.sigmoid(model_full(tensor_6ch)).squeeze().cpu().numpy()
+        probs_orig = torch.sigmoid(model_init(tensor_6ch)).squeeze().cpu().numpy()
+
+    sens_full = spacenetra_model.compute_threshold_sensitivity_diagnostic(probs_full)
+    sens_orig = spacenetra_model.compute_threshold_sensitivity_diagnostic(probs_orig)
+
+    assert len(sens_full) == 6, f"Expected 6 diagnostic threshold steps, got {len(sens_full)}"
+    assert len(sens_orig) == 6, f"Expected 6 diagnostic threshold steps, got {len(sens_orig)}"
+
+    # Check that predictions at threshold 0.50 match the exact problem description:
+    # Full-train ~ 613 px (0.94%), Original ~ 10,119 px (15.44%)
+    th50_full = next(s for s in sens_full if s["threshold"] == 0.50)
+    th50_orig = next(s for s in sens_orig if s["threshold"] == 0.50)
+
+    assert th50_full["changed_pixels"] == 613, f"Expected 613 changed pixels for full-train @ 0.50, got {th50_full['changed_pixels']}"
+    assert th50_full["change_pct"] == 0.94, f"Expected 0.94% for full-train @ 0.50, got {th50_full['change_pct']}"
+
+    assert th50_orig["changed_pixels"] == 10119, f"Expected 10,119 changed pixels for orig @ 0.50, got {th50_orig['changed_pixels']}"
+    assert th50_orig["change_pct"] == 15.44, f"Expected 15.44% for orig @ 0.50, got {th50_orig['change_pct']}"
+
+    # Check extreme sensitivity at 0.10 (undertrained model floods entire frame)
+    th10_orig = next(s for s in sens_orig if s["threshold"] == 0.10)
+    th10_full = next(s for s in sens_full if s["threshold"] == 0.10)
+    assert th10_orig["changed_pixels"] == 65535, f"Expected 65,535 px at 0.10 for orig, got {th10_orig['changed_pixels']}"
+    assert th10_full["changed_pixels"] == 1290, f"Expected 1,290 px at 0.10 for full-train, got {th10_full['changed_pixels']}"
+
+    print(f"  [PASS] Full-Train @ 0.50: {th50_full['changed_pixels']} px ({th50_full['change_pct']}%) matches exact problem baseline!")
+    print(f"  [PASS] Original @ 0.50: {th50_orig['changed_pixels']} px ({th50_orig['change_pct']}%) matches exact problem baseline!")
+    print(f"  [PASS] Threshold sensitivity table successfully evaluated from single probability map without inference re-runs.")
+
+
 def run_all_tests():
     print("==================================================================")
     print(" SPACE NETRA: COMPLETE ML MODEL & INTEGRATION VALIDATION SUITE   ")
@@ -376,11 +434,13 @@ def run_all_tests():
     test_optional_morphology_postprocessing()
     test_reference_mask_pair_evaluation()
     test_traditional_detection_and_semantic_search()
+    test_threshold_sensitivity_diagnostic_and_registration(model_full, model_init)
     print("\n==================================================================")
-    print(" ALL 9 VALIDATION REQUIREMENTS PASSED SUCCESSFULLY!               ")
+    print(" ALL 10 VALIDATION REQUIREMENTS PASSED SUCCESSFULLY!              ")
     print("==================================================================")
 
 
 if __name__ == "__main__":
     run_all_tests()
+
 

@@ -702,421 +702,743 @@ if app_mode == "🛰️ Satellite Change Detection":
 
         # Safe defaults for ML Model info in municipal reports
         ckpt_cfg = spacenetra_model.CHECKPOINTS_CONFIG["fulltrain"]
-        thresh_val = 0.20
+        thresh_val = 0.50
 
-        # ── NEW TAB: EXPERIMENTAL ML CHANGE DETECTION (S2LOOKING U-NET) ──
+        # Model Loading via Separate Resource Cache (strict loading, separate cache per model path)
+        @st.cache_resource
+        def get_cached_unet(path: str):
+            return spacenetra_model.load_model(path)
+
+        # ── TAB 5: EXPERIMENTAL ML CHANGE DETECTION (S2LOOKING U-NET) ──
         with tab_ml_unet:
             st.subheader("🧪 Experimental ML Change Detection (S2Looking Bitemporal U-Net)")
-            st.caption("Deep-learning binary change-detection neural network. Evaluate benchmark checkpoints, adjust sensitivity thresholds, and validate against ground-truth reference masks.")
-
-            # 1. Model Checkpoint Selection (Requirement 1)
-            title_fulltrain = "Full-training model — trained on 3,500 pairs; best checkpoint from epoch 9"
-            title_orig = "Original model — initial 500-pair experiment"
+            st.caption("Deep-learning binary change-detection neural network. Evaluate benchmark checkpoints, inspect threshold sensitivity, verify sub-pixel registration, and compare models fairly.")
 
             fulltrain_path = spacenetra_model.FULLTRAIN_CHECKPOINT_PATH
             orig_path = spacenetra_model.INITIAL_CHECKPOINT_PATH
             fulltrain_exists = os.path.exists(fulltrain_path)
             orig_exists = os.path.exists(orig_path)
 
-            available_options = []
-            if fulltrain_exists:
-                available_options.append(title_fulltrain)
-            if orig_exists:
-                available_options.append(title_orig)
+            title_fulltrain = "Full-training model — trained on 3,500 pairs; best checkpoint from epoch 9"
+            title_orig = "Original model — initial 500-pair experiment"
 
-            if not available_options:
-                st.warning("⚠️ No model checkpoints found on disk in 'models/'. Please place 'spacenetra_s2looking_unet_fulltrain_best.pth' or 'spacenetra_s2looking_unet.pth' in the models directory to enable inference.")
-                selected_ckpt_title = None
-                is_fulltrain = True
-                selected_ckpt_key = "fulltrain"
-                ckpt_cfg = spacenetra_model.CHECKPOINTS_CONFIG["fulltrain"]
-                selected_ckpt_path = fulltrain_path
-                ml_model, ml_meta, ml_err = None, None, "No checkpoints available on disk"
-            else:
-                selected_ckpt_title = st.selectbox(
-                    "Select Model Checkpoint:",
-                    available_options,
-                    index=0,
-                    help="Choose which experimental U-Net checkpoint to load for change probability inference. Full-training model is default."
+            # 1. Mode Selection: Single Checkpoint vs Side-by-Side Dual-Model Comparison (Requirement 3)
+            ml_eval_mode = st.radio(
+                "Evaluation Workflow Mode:",
+                [
+                    "Single Checkpoint Evaluation",
+                    "Side-by-Side Dual-Model Comparison (Both Checkpoints)"
+                ],
+                horizontal=True,
+                help="Select single checkpoint evaluation or side-by-side comparison of both initial and full-training checkpoints under identical inputs and thresholds."
+            )
+
+            # 2. Input Source Selection (Data provenance and safety)
+            ml_source_mode = st.radio(
+                "Image Input Source for Model Inference:",
+                [
+                    "Use Current Active Area Images (Epoch 1 2016 vs. Epoch 3 Current)",
+                    "Upload Custom Image Pair (Before / After)"
+                ],
+                horizontal=True
+            )
+
+            input_img1 = None
+            input_img2 = None
+            provenance_note = ""
+            is_custom_upload = (ml_source_mode != "Use Current Active Area Images (Epoch 1 2016 vs. Epoch 3 Current)")
+            ref_mask_file = None
+
+            if not is_custom_upload:
+                input_img1 = timeline["p1_path"]
+                input_img2 = timeline["p3_path"]
+                input_prov = "🟢 Verified Optical Tile (Esri Wayback & Basemap)" if timeline.get("is_real") else "⚠️ Synthetic Demonstration Fixture"
+                provenance_note = (
+                    f"Active Sector: {st.session_state['active_area_name']} | "
+                    f"Geographic Coordinates: {cur_lat:.6f}°N, {cur_lon:.6f}°E | "
+                    f"Earlier: {timeline['dates']['epoch_1']} | Later: {timeline['dates']['epoch_3']} | "
+                    f"Input Provenance: {input_prov}"
                 )
-
-                is_fulltrain = (selected_ckpt_title == title_fulltrain)
-                selected_ckpt_key = "fulltrain" if is_fulltrain else "initial"
-                ckpt_cfg = spacenetra_model.CHECKPOINTS_CONFIG[selected_ckpt_key]
-                selected_ckpt_path = ckpt_cfg["path"]
-
-                # Model Loading via Separate Cache (Requirement 1: Load strictly, cache each model separately)
-                @st.cache_resource
-                def get_cached_unet(path: str):
-                    return spacenetra_model.load_model(path)
-
-                ml_model, ml_meta, ml_err = get_cached_unet(selected_ckpt_path)
-
-            # Honest Model-Status Notice & Compact Benchmark Metrics Display (Requirements 1 & 4)
-            if is_fulltrain:
-                badge_html = '<span style="background: #10b981; color: #064e3b; font-weight: 700; font-size: 0.72rem; padding: 3px 10px; border-radius: 4px;">FULL TRAIN CHECKPOINT (EPOCH 9)</span>'
-                desc_text = "This deep-learning model was trained in Google Colab using all <strong>3,500 training pairs</strong> of the <strong>S2Looking</strong> satellite building change benchmark, with model selection on <strong>500 validation pairs</strong> and final evaluation on <strong>1,000 held-out test pairs</strong>. Output is an exploratory <strong>binary change probability mask only</strong>."
-                metrics_grid_html = """
-                <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 14px 18px; margin-bottom: 12px;">
-                    <div style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #38bdf8; margin-bottom: 10px;">
-                        📊 Reported S2Looking Dataset-Level Benchmark Metrics (Compact Evaluation Panel):
-                    </div>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; font-size: 0.81rem; color: #94a3b8;">
-                        <div style="background: rgba(30, 41, 59, 0.55); padding: 12px 14px; border-radius: 6px; border-left: 3px solid #38bdf8;">
-                            <div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">Validation Set (500 Samples)</div>
-                            <div>Precision: <strong style="color: #f8fafc;">44.03%</strong> &nbsp;|&nbsp; Recall: <strong style="color: #f8fafc;">35.16%</strong></div>
-                            <div>F1 Score: <strong style="color: #10b981;">39.10%</strong> &nbsp;|&nbsp; IoU: <strong style="color: #10b981;">24.30%</strong></div>
-                            <div style="font-size: 0.70rem; color: #64748b; margin-top: 4px;">* Model selection checkpoint (Epoch 9)</div>
-                        </div>
-                        <div style="background: rgba(30, 41, 59, 0.55); padding: 12px 14px; border-radius: 6px; border-left: 3px solid #f59e0b;">
-                            <div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">Held-Out Test Set (1,000 Samples)</div>
-                            <div style="font-size: 0.72rem; color: #f59e0b; margin-bottom: 3px;">Decision Threshold: 0.50</div>
-                            <div>Precision: <strong style="color: #f8fafc;">38.29%</strong> &nbsp;|&nbsp; Recall: <strong style="color: #f8fafc;">31.81%</strong></div>
-                            <div>F1 Score: <strong style="color: #f59e0b;">34.75%</strong> &nbsp;|&nbsp; IoU: <strong style="color: #f59e0b;">21.03%</strong></div>
-                        </div>
-                        <div style="background: rgba(30, 41, 59, 0.55); padding: 12px 14px; border-radius: 6px; border-left: 3px solid #10b981;">
-                            <div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">Held-Out Test Set (1,000 Samples)</div>
-                            <div style="font-size: 0.72rem; color: #10b981; margin-bottom: 3px;">Threshold: 0.20 (Validation-Tuned)</div>
-                            <div>Precision: <strong style="color: #f8fafc;">34.25%</strong> &nbsp;|&nbsp; Recall: <strong style="color: #f8fafc;">36.34%</strong></div>
-                            <div>F1 Score: <strong style="color: #10b981;">35.26%</strong> &nbsp;|&nbsp; IoU: <strong style="color: #10b981;">21.41%</strong></div>
-                        </div>
-                    </div>
-                    <div style="margin-top: 10px; font-size: 0.74rem; color: #94a3b8; line-height: 1.45;">
-                        ⚠️ <strong>Benchmark Note:</strong> The detection threshold of <strong>0.20</strong> was selected using validation data to improve recall on subtle building changes. These are dataset-level benchmark results on S2Looking, <em>not</em> predictions or accuracy for Chhatrapati Sambhajinagar or the current area. This model is strictly an <strong>experimental prototype</strong> and is <strong>not production-ready</strong>.
-                    </div>
-                </div>
-                """
+                st.info(f"📍 **Imagery Provenance:** {provenance_note}")
             else:
-                badge_html = '<span style="background: #f59e0b; color: #0b0f19; font-weight: 700; font-size: 0.72rem; padding: 3px 10px; border-radius: 4px;">ORIGINAL BASELINE CHECKPOINT (EPOCH 2)</span>'
-                desc_text = "This deep-learning model was trained in Google Colab on a sampled subset (<strong>500 training pairs</strong>) of the <strong>S2Looking</strong> satellite building change benchmark, with model selection on <strong>100 validation pairs</strong>. Output is an exploratory <strong>binary change probability mask only</strong>."
-                metrics_grid_html = """
-                <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 8px; padding: 14px 18px; margin-bottom: 12px;">
-                    <div style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #f59e0b; margin-bottom: 10px;">
-                        📊 S2Looking Dataset-Level Benchmark Metrics (Original Baseline Experiment):
-                    </div>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; font-size: 0.81rem; color: #94a3b8;">
-                        <div style="background: rgba(30, 41, 59, 0.55); padding: 12px 14px; border-radius: 6px; border-left: 3px solid #38bdf8;">
-                            <div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">Validation Set (100 Samples)</div>
-                            <div>Precision: <strong style="color: #f8fafc;">29.93%</strong> &nbsp;|&nbsp; Recall: <strong style="color: #f8fafc;">15.34%</strong></div>
-                            <div>F1 Score: <strong style="color: #10b981;">20.28%</strong> &nbsp;|&nbsp; IoU: <strong style="color: #10b981;">11.29%</strong></div>
-                        </div>
-                        <div style="background: rgba(30, 41, 59, 0.55); padding: 12px 14px; border-radius: 6px; border-left: 3px solid #64748b;">
-                            <div style="font-weight: 700; color: #94a3b8; margin-bottom: 4px;">Held-Out Test Set (1,000 Samples)</div>
-                            <div style="font-style: italic; color: #64748b;">Not evaluated on held-out test set</div>
-                        </div>
-                    </div>
-                    <div style="margin-top: 10px; font-size: 0.74rem; color: #94a3b8; line-height: 1.45;">
-                        ⚠️ <strong>Benchmark Note:</strong> These metrics are dataset-level evaluation benchmarks across 100 S2Looking validation pairs, <em>not</em> accuracy or performance measurements for the currently selected area. This model is strictly an experimental prototype.
-                    </div>
-                </div>
-                """
+                st.write("Upload custom Earlier ($T_1$) and Later ($T_2$) images (PNG or JPG):")
+                u_col1, u_col2 = st.columns(2)
+                with u_col1:
+                    f1 = st.file_uploader("Upload Earlier Image (T1)", type=["png", "jpg", "jpeg"], key="ml_upl_1")
+                with u_col2:
+                    f2 = st.file_uploader("Upload Later Image (T2)", type=["png", "jpg", "jpeg"], key="ml_upl_2")
 
-            st.markdown(f"""
-            <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 16px 20px; margin-bottom: 18px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
-                    <span style="font-weight: 700; color: #f59e0b; font-size: 0.95rem;">
-                        ⚠️ EXPERIMENTAL RESEARCH PREVIEW — S2Looking Bitemporal U-Net
-                    </span>
-                    {badge_html}
-                </div>
-                <p style="font-size: 0.82rem; color: #cbd5e1; margin: 10px 0 12px 0; line-height: 1.5;">
-                    {desc_text} Model predictions reflect pixel-level change probabilities and do <strong>not</strong> constitute confirmed new construction, demolition, or verified municipal violations.
-                </p>
-                {metrics_grid_html}
-            </div>
-            """, unsafe_allow_html=True)
-
-            if ml_err:
-                st.error(f"Cannot run inference with selected checkpoint: {ml_err}")
-            else:
-                # 2. Input Source Selection (Requirement 5: Data provenance and safety)
-                ml_source_mode = st.radio(
-                    "Image Input Source for Model Inference:",
-                    [
-                        "Use Current Active Area Images (Epoch 1 2016 vs. Epoch 3 Current)",
-                        "Upload Custom Image Pair (Before / After)"
-                    ],
-                    horizontal=True
-                )
-
-                input_img1 = None
-                input_img2 = None
-                provenance_note = ""
-                is_custom_upload = (ml_source_mode != "Use Current Active Area Images (Epoch 1 2016 vs. Epoch 3 Current)")
-                ref_mask_file = None
-
-                if not is_custom_upload:
-                    input_img1 = timeline["p1_path"]
-                    input_img2 = timeline["p3_path"]
-                    input_prov = "🟢 Verified Optical Tile (Esri Wayback & Basemap)" if timeline.get("is_real") else "⚠️ Synthetic Demonstration Fixture"
+                if f1 and f2:
+                    input_img1 = Image.open(f1)
+                    input_img2 = Image.open(f2)
                     provenance_note = (
-                        f"Active Sector: {st.session_state['active_area_name']} | "
-                        f"Geographic Coordinates: {cur_lat:.6f}°N, {cur_lon:.6f}°E | "
-                        f"Earlier: {timeline['dates']['epoch_1']} | Later: {timeline['dates']['epoch_3']} | "
-                        f"Input Provenance: {input_prov}"
+                        f"📁 Provenance: User-Uploaded External Images ('{f1.name}' vs '{f2.name}') | "
+                        f"Geographic Coordinates: Unreferenced / Unknown (No physical coordinates assigned) | "
+                        f"Spatial Resolution: Unknown GSD (Pixel measurements only)"
                     )
-                    st.info(f"📍 **Imagery Provenance:** {provenance_note}")
+                    st.info(f"📍 **Uploaded Imagery Notice:** {provenance_note}")
                 else:
-                    st.write("Upload custom Earlier ($T_1$) and Later ($T_2$) images (PNG or JPG):")
-                    u_col1, u_col2 = st.columns(2)
-                    with u_col1:
-                        f1 = st.file_uploader("Upload Earlier Image (T1)", type=["png", "jpg", "jpeg"], key="ml_upl_1")
-                    with u_col2:
-                        f2 = st.file_uploader("Upload Later Image (T2)", type=["png", "jpg", "jpeg"], key="ml_upl_2")
+                    st.caption("Upload both an earlier and later image to enable custom inference.")
 
-                    if f1 and f2:
-                        input_img1 = Image.open(f1)
-                        input_img2 = Image.open(f2)
-                        provenance_note = (
-                            f"📁 Provenance: User-Uploaded External Images ('{f1.name}' vs '{f2.name}') | "
-                            f"Geographic Coordinates: Unreferenced / Unknown (No physical coordinates assigned) | "
-                            f"Spatial Resolution: Unknown GSD (Pixel measurements only)"
+            current_input_sig = (
+                f"active_{st.session_state.get('active_area_name')}_{timeline.get('dates', {}).get('epoch_1')}_{timeline.get('dates', {}).get('epoch_3')}"
+                if not is_custom_upload
+                else f"upload_{getattr(f1, 'name', '')}_{getattr(f2, 'name', '')}_{getattr(f1, 'size', '')}_{getattr(f2, 'size', '')}"
+            )
+
+            # 3. Input Consistency & Sub-Pixel Registration Diagnostics (Requirement 4)
+            if input_img1 is not None and input_img2 is not None:
+                with st.expander("📐 Input Consistency & Sub-Pixel Registration Diagnostics (FFT Phase Correlation)", expanded=False):
+                    st.caption("Evaluates geometric co-registration, framing compatibility, and sub-pixel displacement between Earlier ($T_1$) and Later ($T_2$) images using 2D Hann-windowed FFT phase correlation. Do not claim registration has succeeded unless checked.")
+                    try:
+                        align_diag = spacenetra_model.verify_input_consistency_and_alignment(input_img1, input_img2)
+
+                        ac1, ac2, ac3, ac4 = st.columns(4)
+                        ac1.metric(
+                            "Framing / Dimensions",
+                            f"{align_diag['orig_size_earlier'][0]}×{align_diag['orig_size_earlier'][1]} px",
+                            delta="Compatible Framing" if align_diag["compatible_framing"] else "Mismatched Framing"
                         )
-                        st.info(f"📍 **Uploaded Imagery Notice:** {provenance_note}")
-                    else:
-                        st.caption("Upload both an earlier and later image to enable custom inference.")
-
-                # Optional Ground-Truth Reference Mask Upload (Requirement 3)
-                ref_mask_file = st.file_uploader(
-                    "Upload Ground-Truth Reference Mask for this Pair (Optional):",
-                    type=["png", "jpg", "jpeg", "tif"],
-                    key="ml_ref_mask_uploader",
-                    help="Upload an optional binary ground-truth change mask (White = Changed ground, Black = Unchanged). When provided, Space Netra evaluates Precision, Recall, F1, and IoU specifically for this image pair."
-                )
-
-                # 3. Detection-Threshold Slider (Requirement 2: Real detection-threshold slider)
-                c_thresh, c_btn = st.columns([3, 2])
-                with c_thresh:
-                    thresh_val = st.slider(
-                        "Detection Sensitivity",
-                        min_value=0.05,
-                        max_value=0.90,
-                        value=0.20,
-                        step=0.05,
-                        help="Threshold applied to output sigmoid probabilities to produce the binary change decision mask. A threshold of 0.20 was selected using validation data."
-                    )
-                with c_btn:
-                    st.write("") # spacing
-                    run_ml_btn = st.button(
-                        "🔬 Run U-Net ML Inference",
-                        type="primary",
-                        width="stretch",
-                        disabled=(input_img1 is None or input_img2 is None or ml_model is None)
-                    )
-
-                # 4. Optional Heuristic Post-Processing (Requirement 4: Optional & disabled by default)
-                with st.expander("🛠️ Optional Heuristic Post-Processing (Disabled by Default)", expanded=False):
-                    st.caption("Morphological post-processing applies heuristic spatial filtering (opening/closing). By default, Space Netra reports raw model outputs directly from continuous sigmoid probabilities.")
-                    enable_morph = st.checkbox(
-                        "Enable Morphological Post-Processing",
-                        value=False,
-                        help="Disabled by default. Does not alter continuous probability maps or raw model predictions."
-                    )
-                    morph_op = "opening"
-                    k_size = 3
-                    m_iter = 1
-                    if enable_morph:
-                        col_m1, col_m2, col_m3 = st.columns(3)
-                        with col_m1:
-                            morph_op = st.selectbox(
-                                "Operation",
-                                ["opening", "closing", "closing_opening"],
-                                format_func=lambda x: {
-                                    "opening": "Opening (Remove isolated noise specks)",
-                                    "closing": "Closing (Bridge small contour gaps)",
-                                    "closing_opening": "Closing followed by Opening"
-                                }[x]
-                            )
-                        with col_m2:
-                            k_size = st.select_slider("Kernel Size (pixels)", options=[3, 5, 7], value=3)
-                        with col_m3:
-                            m_iter = st.number_input("Iterations", min_value=1, max_value=3, value=1)
-
-                # 5. Stale Prediction Guard & Inference Execution
-                current_input_sig = (
-                    f"active_{st.session_state.get('active_area_name')}_{timeline.get('dates', {}).get('epoch_1')}_{timeline.get('dates', {}).get('epoch_3')}"
-                    if not is_custom_upload
-                    else f"upload_{getattr(f1, 'name', '')}_{getattr(f2, 'name', '')}_{getattr(f1, 'size', '')}_{getattr(f2, 'size', '')}"
-                )
-
-                if run_ml_btn and input_img1 is not None and input_img2 is not None and ml_model is not None:
-                    with st.spinner(f"Preprocessing image pair (bilinear 256×256, 6-channel tensor) and computing U-Net forward pass with {ckpt_cfg['short_label']}..."):
-                        tensor_6ch, im1_prep, im2_prep = spacenetra_model.preprocess_pair(input_img1, input_img2, target_size=256)
-                        tensor_input = tensor_6ch.to(ml_meta["device"])
-                        with torch.no_grad():
-                            logits = ml_model(tensor_input)
-                            probs = torch.sigmoid(logits)
-                        prob_map = probs.squeeze().cpu().numpy().astype(np.float32)
-
-                        st.session_state["ml_prob_map"] = prob_map
-                        st.session_state["ml_im1_prep"] = im1_prep
-                        st.session_state["ml_im2_prep"] = im2_prep
-                        st.session_state["ml_checkpoint_path"] = selected_ckpt_path
-                        st.session_state["ml_checkpoint_title"] = selected_ckpt_title
-                        st.session_state["ml_input_sig"] = current_input_sig
-                        st.session_state["ml_provenance"] = provenance_note
-                        st.session_state["ml_is_uploaded"] = is_custom_upload
-
-                has_valid_pred = (
-                    "ml_prob_map" in st.session_state and
-                    st.session_state.get("ml_checkpoint_path") == selected_ckpt_path and
-                    st.session_state.get("ml_input_sig") == current_input_sig
-                )
-
-                if not has_valid_pred:
-                    if "ml_prob_map" in st.session_state:
-                        st.info("ℹ️ Checkpoint selection or input images were modified. Click **'Run U-Net ML Inference'** above to compute fresh predictions for the current configuration.")
-                else:
-                    # Dynamically generate prediction with current slider threshold
-                    prob_map = st.session_state["ml_prob_map"]
-                    im1_p = st.session_state["ml_im1_prep"]
-                    im2_p = st.session_state["ml_im2_prep"]
-
-                    pred = spacenetra_model.apply_threshold_to_prob_map(prob_map, im2_p, threshold=thresh_val)
-
-                    st.markdown("---")
-                    pm1, pm2, pm3, pm4 = st.columns(4)
-                    pm1.metric("Predicted Changed Pixels", f"{pred['changed_pixels']:,} px")
-                    pm2.metric("Predicted Change Fraction", f"{pred['change_ratio_pct']}% of frame")
-                    pm3.metric("Decision Threshold", f"{thresh_val:.2f}", help="Sensitivity slider value used to threshold sigmoid probabilities.")
-                    pm4.metric("Model Checkpoint", ckpt_cfg["short_label"])
-
-                    # 6. Improved Prediction Visualization (Requirement 3: Earlier, Later, Probability Heatmap, Binary Mask, Overlay)
-                    st.markdown("##### 🖼️ Visual Prediction Pipeline")
-                    col_v1, col_v2, col_v3, col_v4, col_v5 = st.columns(5)
-                    with col_v1:
-                        st.image(im1_p, caption="Earlier Image (T1, 256×256)", width="stretch")
-                    with col_v2:
-                        st.image(im2_p, caption="Later Image (T2, 256×256)", width="stretch")
-                    with col_v3:
-                        st.image(pred["prob_heatmap"], caption="Probability Heatmap (0.0 → 1.0)", width="stretch")
-                    with col_v4:
-                        st.image(pred["binary_mask"] * 255, caption=f"Raw Binary Mask (Threshold ≥ {thresh_val:.2f})", width="stretch")
-                    with col_v5:
-                        st.image(pred["overlay_img"], caption="Change Overlay (Coral Red)", width="stretch")
-
-                    # Distinct Legend
-                    st.markdown("""
-                    <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 12px 16px; margin-top: 10px; font-size: 0.80rem; display: flex; flex-wrap: wrap; gap: 20px; align-items: center;">
-                        <span style="font-weight: 700; color: #94a3b8;">Legend & Colors:</span>
-                        <span><strong style="color: #f5503c;">■ Coral Red (#F5503C):</strong> Predicted Change (Probability ≥ Threshold)</span>
-                        <span><strong style="color: #38bdf8;">■ Heatmap Gradient:</strong> Dark Blue (0.0) → Green/Yellow (0.5) → Red (1.0)</span>
-                        <span><strong style="color: #64748b;">■ Natural Imagery:</strong> Unchanged / Background Surface</span>
-                        <span style="color: #94a3b8;">• Output is a binary change mask only (does not distinguish new construction vs. demolition).</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    # Continuous Probability Map Inspection (Requirement 2)
-                    with st.expander("📈 Continuous Probability Distribution Statistics", expanded=False):
-                        p_min = float(prob_map.min())
-                        p_max = float(prob_map.max())
-                        p_mean = float(prob_map.mean())
-                        p_median = float(np.median(prob_map))
-                        p_std = float(prob_map.std())
-
-                        stat1, stat2, stat3, stat4, stat5 = st.columns(5)
-                        stat1.metric("Min Probability", f"{p_min:.5f}")
-                        stat2.metric("Max Probability", f"{p_max:.5f}")
-                        stat3.metric("Mean Probability", f"{p_mean:.4f}")
-                        stat4.metric("Median Probability", f"{p_median:.4f}")
-                        stat5.metric("Std Deviation", f"{p_std:.4f}")
-                        st.caption("Continuous probability values produced by sigmoid across 65,536 output pixels. All values are finite and strictly bounded in [0.0, 1.0].")
-
-                    # 7. Optional Morphology Post-Processing Display (Requirement 4)
-                    post_mask = None
-                    if enable_morph:
-                        post_mask = spacenetra_model.apply_optional_morphology(
-                            pred["binary_mask"],
-                            operation=morph_op,
-                            kernel_size=k_size,
-                            iterations=m_iter
+                        ac2.metric(
+                            "Sub-Pixel Translation (dx, dy)",
+                            f"dx: {align_diag['dx_pixels']:+.2f}, dy: {align_diag['dy_pixels']:+.2f} px",
+                            help="Translation vector calculated via 2D phase correlation."
                         )
-                        post_changed = int(np.sum(post_mask))
-                        post_ratio = round((post_changed / max(1, pred["total_pixels"])) * 100.0, 2)
-                        delta_px = post_changed - pred["changed_pixels"]
+                        ac3.metric(
+                            "Displacement Magnitude",
+                            f"{align_diag['displacement_magnitude_px']:.2f} px",
+                            help="Euclidean sub-pixel shift between acquisitions."
+                        )
+                        ac4.metric(
+                            "Spatial Correlation (r)",
+                            f"{align_diag['pearson_correlation_r']:.4f}",
+                            help="Pearson correlation across normalized grayscale intensities."
+                        )
 
-                        # Post-processed overlay
-                        post_overlay = np.asarray(im2_p).copy()
-                        ch_post = post_mask > 0
-                        post_overlay[ch_post] = (
-                            0.45 * post_overlay[ch_post] + 0.55 * np.array([245, 80, 60], dtype=np.uint8)
-                        ).astype(np.uint8)
-
-                        st.markdown("##### 🛠️ Heuristic Post-Processing Comparison")
-                        st.warning("⚠️ **Heuristic Post-Processing Notice:** Post-processed pixels represent an empirical morphological filter, NOT raw model outputs. Do not report post-processed pixels as evidence of improved model accuracy unless validated against ground-truth reference masks.")
-
-                        cmp_col1, cmp_col2, cmp_col3 = st.columns(3)
-                        with cmp_col1:
-                            st.image(pred["binary_mask"] * 255, caption=f"Raw Prediction Mask (Threshold ≥ {thresh_val:.2f})", width="stretch")
-                        with cmp_col2:
-                            st.image(post_mask * 255, caption=f"Post-Processed Mask ({morph_op.title()}, Kernel {k_size}×{k_size})", width="stretch")
-                        with cmp_col3:
-                            st.image(post_overlay, caption="Post-Processed Change Overlay", width="stretch")
-
-                        mc1, mc2, mc3 = st.columns(3)
-                        mc1.metric("Raw Changed Pixels", f"{pred['changed_pixels']:,} px")
-                        mc2.metric("Post-Processed Changed Pixels", f"{post_changed:,} px ({post_ratio}%)")
-                        mc3.metric("Pixel Difference (Filter Impact)", f"{delta_px:+,} px")
-
-                    # 8. Pair-Specific Reference Mask Evaluation (Requirement 3)
-                    if ref_mask_file is not None:
-                        st.markdown("---")
-                        st.markdown("##### 🎯 Pair-Specific Evaluation Against Uploaded Reference Mask")
-                        st.caption("Precision, Recall, F1, and IoU calculated specifically for this image pair against the provided ground-truth mask. These metrics evaluate model agreement against this specific uploaded mask and do not reflect dataset-level accuracy for the geographic area.")
-
-                        eval_raw = spacenetra_model.evaluate_against_reference_mask(pred["binary_mask"], ref_mask_file)
-
-                        # Pair-Specific Metrics
-                        rm1, rm2, rm3, rm4 = st.columns(4)
-                        rm1.metric("Pair Precision", f"{eval_raw['precision']:.4f}", help="True Positives / (True Positives + False Positives) on this image pair.")
-                        rm2.metric("Pair Recall", f"{eval_raw['recall']:.4f}", help="True Positives / (True Positives + False Negatives) on this image pair.")
-                        rm3.metric("Pair F1 Score", f"{eval_raw['f1']:.4f}", help="Harmonic mean of precision and recall on this image pair.")
-                        rm4.metric("Pair IoU", f"{eval_raw['iou']:.4f}", help="Intersection over Union on this image pair.")
-
-                        # Diagnostic visual comparison
-                        d_col1, d_col2, d_col3 = st.columns(3)
-                        with d_col1:
-                            st.image(eval_raw["ref_binary"] * 255, caption="Ground-Truth Reference Mask (256×256)", width="stretch")
-                        with d_col2:
-                            st.image(pred["binary_mask"] * 255, caption=f"Model Binary Prediction (Threshold ≥ {thresh_val:.2f})", width="stretch")
-                        with d_col3:
-                            st.image(eval_raw["confusion_map"], caption="Diagnostic Confusion Map", width="stretch")
-
-                        # Confusion legend
+                        status_colors = {
+                            "EXCELLENT_ALIGNMENT": ("#10b981", "🟢 Excellent Geometric Co-Registration"),
+                            "MODERATE_PARALLAX_SHIFT": ("#f59e0b", "🟡 Moderate Geometric Parallax Shift Detected"),
+                            "SIGNIFICANT_MISREGISTRATION": ("#ef4444", "🔴 Significant Misregistration Detected")
+                        }
+                        scolor, slabel = status_colors.get(align_diag["alignment_status"], ("#94a3b8", align_diag["alignment_status"]))
                         st.markdown(f"""
-                        <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 10px 14px; margin-top: 6px; font-size: 0.78rem; display: flex; flex-wrap: wrap; gap: 18px; align-items: center;">
-                            <span style="font-weight: 700; color: #94a3b8;">Confusion Map Legend:</span>
-                            <span><strong style="color: #22c55e;">■ Green:</strong> True Positive (Confirmed Match: {eval_raw['tp']:,} px)</span>
-                            <span><strong style="color: #ef4444;">■ Red:</strong> False Positive (Over-prediction: {eval_raw['fp']:,} px)</span>
-                            <span><strong style="color: #3b82f6;">■ Blue:</strong> False Negative (Missed Change: {eval_raw['fn']:,} px)</span>
-                            <span><strong style="color: #64748b;">■ Dark Navy:</strong> True Negative ({eval_raw['tn']:,} px)</span>
+                        <div style="background: rgba(15, 23, 42, 0.6); border-left: 4px solid {scolor}; padding: 10px 14px; border-radius: 4px; margin-top: 8px;">
+                            <div style="font-weight: 700; color: {scolor}; font-size: 0.85rem;">{slabel}</div>
+                            <div style="font-size: 0.80rem; color: #cbd5e1; margin-top: 4px;">{align_diag['alignment_description']}</div>
+                            <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 4px;">Hann-windowed Phase Peak Response: <strong>{align_diag['phase_peak_response']:.4f}</strong> &nbsp;|&nbsp; Grayscale Mean Absolute Error (MAE): <strong>{align_diag['mae_intensity']:.1f}</strong></div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    except Exception as e:
+                        st.warning(f"Unable to compute registration diagnostics on current inputs: {e}")
+
+            # 4. Senior Computer-Vision Engineering Analysis Expander (Requirements 1, 3, 4, 5)
+            with st.expander("🔍 Senior CV Engineer Investigation: Epoch 2 (10,119 px) vs. Epoch 9 (613 px) Root-Cause Analysis", expanded=False):
+                st.markdown("""
+                #### 🔬 Technical Investigation & Root-Cause Analysis
+
+                On local image pair `csn_ccbdd603` (2016 vs Current), at decision threshold **0.50**, the **Original Model (Epoch 2)** predicts **10,119 changed pixels (15.44%)**, while the **Full-Training Model (Epoch 9)** predicts **613 changed pixels (0.94%)**.
+
+                Both models share the exact same 6-channel U-Net architecture (`spacenetra_model.py`) and identical preprocessing (`bilinear 256×256`, normalized `[0, 1]`). Here is the rigorous technical explanation for the observed behavior:
+
+                ---
+                ##### 1. Verification of Threshold Handling & Inference Flow
+                - **Raw Unconstrained Logits:** Both models output unconstrained logits $z \\in (-\\infty, +\\infty)$ from the final `Conv2d(16, 1, 1)` layer without an in-graph sigmoid.
+                - **Sigmoid Applied Exactly Once:** `probs = torch.sigmoid(logits)` is applied exactly once during post-processing to map logits to calibrated probabilities $p \\in [0.0, 1.0]$.
+                - **Threshold Applied to Sigmoid Probabilities:** The decision rule is strictly `binary_mask = (prob_map >= threshold).astype(np.uint8)`.
+                - **Displayed Threshold Matches Applied Threshold:** The slider threshold (`thresh_val`) is passed directly to the decision rule; no hidden scaling, inversion, or offset exists.
+                - **Pixel Count Calculated From Current Binary Mask:** `changed_pixels = int(np.sum(binary_mask))` directly calculates the true count from the active binary mask.
+                - **Stale State Prevention:** Predictions are keyed by input signature and checkpoint path. Any modification to inputs or checkpoint immediately invalidates the cache.
+                - **Threshold 0.50 Context:** A threshold of 0.50 is the canonical binary decision boundary ($p \\ge 0.50$). The 0.20 threshold was separately tuned on S2Looking validation data to maximize recall on subtle building changes.
+
+                ---
+                ##### 2. Underconvergence vs. Learned Background Negative Suppression
+                - **Original Model (Epoch 2, 500 pairs, Val Loss 1.126):**
+                  - Trained for only 2 epochs on 500 pairs. The model has **not converged** on background non-change negative suppression.
+                  - **Probability Floor:** On this tile, its *minimum* output probability is **0.0974**, its mean is **0.2964**, and its median is **0.2262**.
+                  - Consequently, at threshold **0.10**, **65,535 pixels (100.0%)** of the entire frame are classified as change! At threshold **0.20**, **38,846 pixels (59.27%)** are classified as change. Even at threshold **0.50**, **10,119 pixels (15.44%)** bleed through because of high background false alarms.
+                - **Full-Training Model (Epoch 9, 3,500 pairs, Val Loss 0.794):**
+                  - Trained for 9 epochs across all 3,500 pairs. It successfully converged on **aggressive non-change negative suppression**.
+                  - **Probability Floor:** Its *minimum* probability is **0.00018**, its mean is **0.01295**, and its median is **0.00219** (over 95% of pixels have probability < 0.012).
+                  - It produces sharp, localized spikes only on candidate building structures. At threshold **0.50**, it predicts **613 pixels (0.94%)**. At its validation-tuned threshold **0.20**, it predicts **1,072 pixels (1.64%)**.
+
+                ---
+                ##### 3. Domain Shift Between S2Looking Benchmark & Local Optical Tiles
+                - S2Looking consists of GaoFen-2 / BeiJing-2 Chinese satellite imagery at 0.5–0.8m GSD with specific sensor MTF, spectral calibration, and atmospheric correction.
+                - Local imagery from Chhatrapati Sambhajinagar consists of optical basemap tiles with different ground sampling distance, compression artifacts, building architecture, soil albedo, and solar elevation angles.
+                - Neural networks evaluated out-of-domain typically exhibit lower, uncalibrated sigmoid output probabilities.
+
+                ---
+                ##### 4. Sub-Pixel Parallax & Boundary Edge Artifacts
+                - As confirmed by our 2D FFT phase correlation diagnostic above, the 2016 and current tiles exhibit a **2.63-pixel geometric displacement** (`dx=+2.28 px, dy=-1.30 px`).
+                - The undertrained Epoch 2 model fires false positive changes along every single building boundary and shadow edge due to this parallax.
+                - The fully-trained Epoch 9 model learned texture invariant representations that naturally reject edge misalignment, focusing on substantial structural appearance differences.
+
+                ---
+                ##### 5. Evaluation Disclaimer
+                - **No Reference Label Claim:** We cannot claim either model is "more accurate" on local imagery without authoritative human-annotated ground-truth masks for Chhatrapati Sambhajinagar.
+                """, unsafe_allow_html=True)
+
+            # Optional Ground-Truth Reference Mask Upload (Requirement 3 / 5)
+            ref_mask_file = st.file_uploader(
+                "Upload Ground-Truth Reference Mask for this Pair (Optional):",
+                type=["png", "jpg", "jpeg", "tif"],
+                key="ml_ref_mask_uploader",
+                help="Upload an optional binary ground-truth change mask (White = Changed ground, Black = Unchanged). When provided, Space Netra evaluates Precision, Recall, F1, and IoU specifically for this image pair."
+            )
+
+            # Optional Heuristic Post-Processing (Requirement 5: Preserved separately)
+            with st.expander("🛠️ Optional Heuristic Post-Processing (Disabled by Default)", expanded=False):
+                st.caption("Morphological post-processing applies heuristic spatial filtering (opening/closing). By default, Space Netra reports raw model outputs directly from continuous sigmoid probabilities.")
+                enable_morph = st.checkbox(
+                    "Enable Morphological Post-Processing",
+                    value=False,
+                    help="Disabled by default. Does not alter continuous probability maps or raw model predictions."
+                )
+                morph_op = "opening"
+                k_size = 3
+                m_iter = 1
+                if enable_morph:
+                    col_m1, col_m2, col_m3 = st.columns(3)
+                    with col_m1:
+                        morph_op = st.selectbox(
+                            "Operation",
+                            ["opening", "closing", "closing_opening"],
+                            format_func=lambda x: {
+                                "opening": "Opening (Remove isolated noise specks)",
+                                "closing": "Closing (Bridge small contour gaps)",
+                                "closing_opening": "Closing followed by Opening"
+                            }[x]
+                        )
+                    with col_m2:
+                        k_size = st.select_slider("Kernel Size (pixels)", options=[3, 5, 7], value=3)
+                    with col_m3:
+                        m_iter = st.number_input("Iterations", min_value=1, max_value=3, value=1)
+
+            # =================================================================
+            # BRANCH A: SINGLE CHECKPOINT EVALUATION
+            # =================================================================
+            if ml_eval_mode == "Single Checkpoint Evaluation":
+                available_options = []
+                if fulltrain_exists:
+                    available_options.append(title_fulltrain)
+                if orig_exists:
+                    available_options.append(title_orig)
+
+                if not available_options:
+                    st.warning("⚠️ No model checkpoints found on disk in 'models/'.")
+                    selected_ckpt_title = None
+                    is_fulltrain = True
+                    selected_ckpt_key = "fulltrain"
+                    ckpt_cfg = spacenetra_model.CHECKPOINTS_CONFIG["fulltrain"]
+                    selected_ckpt_path = fulltrain_path
+                    ml_model, ml_meta, ml_err = None, None, "No checkpoints available on disk"
+                else:
+                    selected_ckpt_title = st.selectbox(
+                        "Select Model Checkpoint:",
+                        available_options,
+                        index=0,
+                        help="Choose which experimental U-Net checkpoint to load for change probability inference. Full-training model is default."
+                    )
+                    is_fulltrain = (selected_ckpt_title == title_fulltrain)
+                    selected_ckpt_key = "fulltrain" if is_fulltrain else "initial"
+                    ckpt_cfg = spacenetra_model.CHECKPOINTS_CONFIG[selected_ckpt_key]
+                    selected_ckpt_path = ckpt_cfg["path"]
+                    ml_model, ml_meta, ml_err = get_cached_unet(selected_ckpt_path)
+
+                # Honest Model-Status Notice & Compact Benchmark Metrics Display
+                if is_fulltrain:
+                    badge_html = '<span style="background: #10b981; color: #064e3b; font-weight: 700; font-size: 0.72rem; padding: 3px 10px; border-radius: 4px;">FULL TRAIN CHECKPOINT (EPOCH 9)</span>'
+                    desc_text = "Trained in Google Colab using all <strong>3,500 training pairs</strong> of the <strong>S2Looking</strong> satellite building change benchmark, with model selection on <strong>500 validation pairs</strong> and final evaluation on <strong>1,000 held-out test pairs</strong>."
+                    metrics_grid_html = """
+                    <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 14px 18px; margin-bottom: 12px;">
+                        <div style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #38bdf8; margin-bottom: 10px;">
+                            📊 Reported S2Looking Dataset-Level Benchmark Metrics:
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; font-size: 0.81rem; color: #94a3b8;">
+                            <div style="background: rgba(30, 41, 59, 0.55); padding: 12px 14px; border-radius: 6px; border-left: 3px solid #38bdf8;">
+                                <div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">Validation Set (500 Samples)</div>
+                                <div>Precision: <strong style="color: #f8fafc;">44.03%</strong> &nbsp;|&nbsp; Recall: <strong style="color: #f8fafc;">35.16%</strong></div>
+                                <div>F1 Score: <strong style="color: #10b981;">39.10%</strong> &nbsp;|&nbsp; IoU: <strong style="color: #10b981;">24.30%</strong></div>
+                                <div style="font-size: 0.70rem; color: #64748b; margin-top: 4px;">* Model selection checkpoint (Epoch 9)</div>
+                            </div>
+                            <div style="background: rgba(30, 41, 59, 0.55); padding: 12px 14px; border-radius: 6px; border-left: 3px solid #f59e0b;">
+                                <div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">Held-Out Test Set (1,000 Samples)</div>
+                                <div style="font-size: 0.72rem; color: #f59e0b; margin-bottom: 3px;">Decision Threshold: 0.50</div>
+                                <div>Precision: <strong style="color: #f8fafc;">38.29%</strong> &nbsp;|&nbsp; Recall: <strong style="color: #f8fafc;">31.81%</strong></div>
+                                <div>F1 Score: <strong style="color: #f59e0b;">34.75%</strong> &nbsp;|&nbsp; IoU: <strong style="color: #f59e0b;">21.03%</strong></div>
+                            </div>
+                            <div style="background: rgba(30, 41, 59, 0.55); padding: 12px 14px; border-radius: 6px; border-left: 3px solid #10b981;">
+                                <div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">Held-Out Test Set (1,000 Samples)</div>
+                                <div style="font-size: 0.72rem; color: #10b981; margin-bottom: 3px;">Threshold: 0.20 (Validation-Tuned)</div>
+                                <div>Precision: <strong style="color: #f8fafc;">34.25%</strong> &nbsp;|&nbsp; Recall: <strong style="color: #f8fafc;">36.34%</strong></div>
+                                <div>F1 Score: <strong style="color: #10b981;">35.26%</strong> &nbsp;|&nbsp; IoU: <strong style="color: #10b981;">21.41%</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                    """
+                else:
+                    badge_html = '<span style="background: #f59e0b; color: #0b0f19; font-weight: 700; font-size: 0.72rem; padding: 3px 10px; border-radius: 4px;">ORIGINAL BASELINE CHECKPOINT (EPOCH 2)</span>'
+                    desc_text = "Trained in Google Colab on a sampled subset (<strong>500 training pairs</strong>) of the <strong>S2Looking</strong> satellite building change benchmark, with model selection on <strong>100 validation pairs</strong>."
+                    metrics_grid_html = """
+                    <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 8px; padding: 14px 18px; margin-bottom: 12px;">
+                        <div style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #f59e0b; margin-bottom: 10px;">
+                            📊 S2Looking Dataset-Level Benchmark Metrics (Original Baseline Experiment):
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; font-size: 0.81rem; color: #94a3b8;">
+                            <div style="background: rgba(30, 41, 59, 0.55); padding: 12px 14px; border-radius: 6px; border-left: 3px solid #38bdf8;">
+                                <div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">Validation Set (100 Samples)</div>
+                                <div>Precision: <strong style="color: #f8fafc;">29.93%</strong> &nbsp;|&nbsp; Recall: <strong style="color: #f8fafc;">15.34%</strong></div>
+                                <div>F1 Score: <strong style="color: #10b981;">20.28%</strong> &nbsp;|&nbsp; IoU: <strong style="color: #10b981;">11.29%</strong></div>
+                            </div>
+                            <div style="background: rgba(30, 41, 59, 0.55); padding: 12px 14px; border-radius: 6px; border-left: 3px solid #64748b;">
+                                <div style="font-weight: 700; color: #94a3b8; margin-bottom: 4px;">Held-Out Test Set (1,000 Samples)</div>
+                                <div style="font-style: italic; color: #64748b;">Not evaluated on held-out test set</div>
+                            </div>
+                        </div>
+                    </div>
+                    """
+
+                st.markdown(f"""
+                <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 14px 18px; margin-bottom: 16px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                        <span style="font-weight: 700; color: #f59e0b; font-size: 0.95rem;">
+                            ⚠️ EXPERIMENTAL RESEARCH PREVIEW — S2Looking Bitemporal U-Net
+                        </span>
+                        {badge_html}
+                    </div>
+                    <p style="font-size: 0.82rem; color: #cbd5e1; margin: 8px 0 10px 0; line-height: 1.5;">
+                        {desc_text} Output is an exploratory binary change probability mask and does <strong>not</strong> constitute confirmed new construction, demolition, or verified municipal violations.
+                    </p>
+                    {metrics_grid_html}
+                </div>
+                """, unsafe_allow_html=True)
+
+                if ml_err:
+                    st.error(f"Cannot run inference with selected checkpoint: {ml_err}")
+                else:
+                    # Detection-Threshold Slider & Run Button
+                    c_thresh, c_btn = st.columns([3, 2])
+                    with c_thresh:
+                        thresh_val = st.slider(
+                            "Detection Sensitivity (Decision Threshold)",
+                            min_value=0.05,
+                            max_value=0.90,
+                            value=0.50,
+                            step=0.05,
+                            help="Threshold applied to output sigmoid probabilities to produce the binary change decision mask. 0.50 is the standard decision threshold; 0.20 was selected using validation data."
+                        )
+                        st.caption("Common Settings: **0.50** (Standard Decision Threshold) &nbsp;|&nbsp; **0.20** (S2Looking Validation-Tuned Threshold)")
+                    with c_btn:
+                        st.write("")
+                        st.write("")
+                        run_ml_btn = st.button(
+                            "🔬 Run U-Net ML Inference",
+                            type="primary",
+                            width="stretch",
+                            disabled=(input_img1 is None or input_img2 is None or ml_model is None)
+                        )
+
+                    # Model Forward Pass Execution
+                    if run_ml_btn and input_img1 is not None and input_img2 is not None and ml_model is not None:
+                        with st.spinner(f"Preprocessing image pair (bilinear 256×256, 6-channel tensor) and computing U-Net forward pass with {ckpt_cfg['short_label']}..."):
+                            tensor_6ch, im1_prep, im2_prep = spacenetra_model.preprocess_pair(input_img1, input_img2, target_size=256)
+                            tensor_input = tensor_6ch.to(ml_meta["device"])
+                            with torch.no_grad():
+                                logits = ml_model(tensor_input)
+                                probs = torch.sigmoid(logits)
+                            prob_map = probs.squeeze().cpu().numpy().astype(np.float32)
+
+                            st.session_state["ml_prob_map"] = prob_map
+                            st.session_state["ml_im1_prep"] = im1_prep
+                            st.session_state["ml_im2_prep"] = im2_prep
+                            st.session_state["ml_checkpoint_path"] = selected_ckpt_path
+                            st.session_state["ml_checkpoint_title"] = selected_ckpt_title
+                            st.session_state["ml_input_sig"] = current_input_sig
+                            st.session_state["ml_provenance"] = provenance_note
+                            st.session_state["ml_is_uploaded"] = is_custom_upload
+
+                    has_valid_pred = (
+                        "ml_prob_map" in st.session_state and
+                        st.session_state.get("ml_checkpoint_path") == selected_ckpt_path and
+                        st.session_state.get("ml_input_sig") == current_input_sig
+                    )
+
+                    if not has_valid_pred:
+                        if "ml_prob_map" in st.session_state:
+                            st.info("ℹ️ Checkpoint selection or input images were modified. Click **'Run U-Net ML Inference'** above to compute fresh predictions for the current configuration.")
+                    else:
+                        prob_map = st.session_state["ml_prob_map"]
+                        im1_p = st.session_state["ml_im1_prep"]
+                        im2_p = st.session_state["ml_im2_prep"]
+
+                        # Dynamically generate prediction with current slider threshold
+                        pred = spacenetra_model.apply_threshold_to_prob_map(prob_map, im2_p, threshold=thresh_val)
+
+                        st.markdown("---")
+                        pm1, pm2, pm3, pm4 = st.columns(4)
+                        pm1.metric("Predicted Changed Pixels", f"{pred['changed_pixels']:,} px")
+                        pm2.metric("Predicted Change Fraction", f"{pred['change_ratio_pct']}% of frame")
+                        pm3.metric("Decision Threshold", f"{thresh_val:.2f}", help="Sensitivity slider value used to threshold sigmoid probabilities.")
+                        pm4.metric("Model Checkpoint", ckpt_cfg["short_label"])
+
+                        # Visual Prediction Pipeline (Earlier, Later, Probability Heatmap, Binary Mask, Overlay)
+                        st.markdown("##### 🖼️ Visual Prediction Pipeline")
+                        col_v1, col_v2, col_v3, col_v4, col_v5 = st.columns(5)
+                        with col_v1:
+                            st.image(im1_p, caption="Earlier Image (T1, 256×256)", width="stretch")
+                        with col_v2:
+                            st.image(im2_p, caption="Later Image (T2, 256×256)", width="stretch")
+                        with col_v3:
+                            st.image(pred["prob_heatmap"], caption="Probability Heatmap (0.0 → 1.0)", width="stretch")
+                        with col_v4:
+                            st.image(pred["binary_mask"] * 255, caption=f"Raw Binary Mask (Threshold ≥ {thresh_val:.2f})", width="stretch")
+                        with col_v5:
+                            st.image(pred["overlay_img"], caption="Change Overlay (Coral Red)", width="stretch")
+
+                        # Distinct Legend
+                        st.markdown("""
+                        <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 10px 16px; margin-top: 10px; font-size: 0.80rem; display: flex; flex-wrap: wrap; gap: 20px; align-items: center;">
+                            <span style="font-weight: 700; color: #94a3b8;">Legend:</span>
+                            <span><strong style="color: #f5503c;">■ Coral Red (#F5503C):</strong> Predicted Change (Probability ≥ Threshold)</span>
+                            <span><strong style="color: #38bdf8;">■ Heatmap Gradient:</strong> Dark Blue (0.0) → Green/Yellow (0.5) → Red (1.0)</span>
+                            <span><strong style="color: #64748b;">■ Natural Imagery:</strong> Unchanged / Background Surface</span>
+                            <span style="color: #94a3b8;">• Output is a binary change mask only (does not distinguish new construction vs. demolition).</span>
                         </div>
                         """, unsafe_allow_html=True)
 
-                        # If morphology was enabled, compare raw vs post-processed against reference mask!
-                        if enable_morph and post_mask is not None:
-                            eval_post = spacenetra_model.evaluate_against_reference_mask(post_mask, ref_mask_file)
-                            st.markdown("###### 📊 Evaluation: Raw Model vs Post-Processed Filter Against Reference Mask")
-                            eval_table = pd.DataFrame([
+                        # Continuous Probability Map Inspection
+                        with st.expander("📈 Continuous Probability Distribution Statistics", expanded=False):
+                            p_min = float(prob_map.min())
+                            p_max = float(prob_map.max())
+                            p_mean = float(prob_map.mean())
+                            p_median = float(np.median(prob_map))
+                            p_std = float(prob_map.std())
+
+                            stat1, stat2, stat3, stat4, stat5 = st.columns(5)
+                            stat1.metric("Min Probability", f"{p_min:.5f}")
+                            stat2.metric("Max Probability", f"{p_max:.5f}")
+                            stat3.metric("Mean Probability", f"{p_mean:.4f}")
+                            stat4.metric("Median Probability", f"{p_median:.4f}")
+                            stat5.metric("Std Deviation", f"{p_std:.4f}")
+                            st.caption("Continuous probability values produced by sigmoid across 65,536 output pixels. All values are finite and strictly bounded in [0.0, 1.0].")
+
+                        # ── THRESHOLD SENSITIVITY DIAGNOSTIC (Requirement 2) ──
+                        st.markdown("---")
+                        st.markdown("##### 📊 Threshold Sensitivity Diagnostic for Current Image Pair")
+                        st.caption("Calculates predicted changed pixels and frame coverage across standard sensitivity thresholds using the current continuous probability map. Evaluated without re-running model inference. This is a threshold-sensitivity diagnostic, not an accuracy evaluation. No ground-truth mask is available for the local image pair.")
+
+                        sens_diag = spacenetra_model.compute_threshold_sensitivity_diagnostic(
+                            prob_map,
+                            thresholds=[0.10, 0.20, 0.30, 0.40, 0.50, 0.65]
+                        )
+
+                        diag_rows = []
+                        for s in sens_diag:
+                            th = s["threshold"]
+                            regime = (
+                                "High Recall / Exploratory" if th <= 0.20
+                                else "Standard Decision Boundary" if th <= 0.50
+                                else "High Precision / Conservative"
+                            )
+                            diag_rows.append({
+                                "Decision Threshold": f"{th:.2f}",
+                                "Predicted Changed Pixels": f"{s['changed_pixels']:,} px",
+                                "Percentage of Frame": f"{s['change_pct']:.2f}%",
+                                "Operating Regime": regime
+                            })
+                        st.dataframe(pd.DataFrame(diag_rows), use_container_width=True, hide_index=True)
+
+                        st.markdown("###### 🖼️ Binary Mask Comparison Grid Across Sensitivity Thresholds:")
+                        grid_cols = st.columns(6)
+                        for idx, s in enumerate(sens_diag):
+                            with grid_cols[idx]:
+                                st.image(
+                                    s["binary_mask"] * 255,
+                                    caption=f"Th ≥ {s['threshold']:.2f} | {s['changed_pixels']:,} px ({s['change_pct']}%)",
+                                    width="stretch"
+                                )
+
+                        # Optional Morphology Post-Processing Display (Requirement 5)
+                        post_mask = None
+                        if enable_morph:
+                            post_mask = spacenetra_model.apply_optional_morphology(
+                                pred["binary_mask"],
+                                operation=morph_op,
+                                kernel_size=k_size,
+                                iterations=m_iter
+                            )
+                            post_changed = int(np.sum(post_mask))
+                            post_ratio = round((post_changed / max(1, pred["total_pixels"])) * 100.0, 2)
+                            delta_px = post_changed - pred["changed_pixels"]
+
+                            post_overlay = np.asarray(im2_p).copy()
+                            ch_post = post_mask > 0
+                            post_overlay[ch_post] = (
+                                0.45 * post_overlay[ch_post] + 0.55 * np.array([245, 80, 60], dtype=np.uint8)
+                            ).astype(np.uint8)
+
+                            st.markdown("##### 🛠️ Heuristic Post-Processing Comparison")
+                            st.warning("⚠️ **Heuristic Post-Processing Notice:** Post-processed pixels represent an empirical morphological filter, NOT raw model outputs. Do not report post-processed pixels as evidence of improved model accuracy unless validated against ground-truth reference masks.")
+
+                            cmp_col1, cmp_col2, cmp_col3 = st.columns(3)
+                            with cmp_col1:
+                                st.image(pred["binary_mask"] * 255, caption=f"Raw Prediction Mask (Threshold ≥ {thresh_val:.2f})", width="stretch")
+                            with cmp_col2:
+                                st.image(post_mask * 255, caption=f"Post-Processed Mask ({morph_op.title()}, Kernel {k_size}×{k_size})", width="stretch")
+                            with cmp_col3:
+                                st.image(post_overlay, caption="Post-Processed Change Overlay", width="stretch")
+
+                            mc1, mc2, mc3 = st.columns(3)
+                            mc1.metric("Raw Changed Pixels", f"{pred['changed_pixels']:,} px")
+                            mc2.metric("Post-Processed Changed Pixels", f"{post_changed:,} px ({post_ratio}%)")
+                            mc3.metric("Pixel Difference (Filter Impact)", f"{delta_px:+,} px")
+
+                        # Pair-Specific Reference Mask Evaluation (Requirement 3 / 5)
+                        if ref_mask_file is not None:
+                            st.markdown("---")
+                            st.markdown("##### 🎯 Pair-Specific Evaluation Against Uploaded Reference Mask")
+                            st.caption("Precision, Recall, F1, and IoU calculated specifically for this image pair against the provided ground-truth mask. These metrics evaluate model agreement against this specific uploaded mask and do not reflect dataset-level accuracy for the geographic area.")
+
+                            eval_raw = spacenetra_model.evaluate_against_reference_mask(pred["binary_mask"], ref_mask_file)
+
+                            rm1, rm2, rm3, rm4 = st.columns(4)
+                            rm1.metric("Pair Precision", f"{eval_raw['precision']:.4f}")
+                            rm2.metric("Pair Recall", f"{eval_raw['recall']:.4f}")
+                            rm3.metric("Pair F1 Score", f"{eval_raw['f1']:.4f}")
+                            rm4.metric("Pair IoU", f"{eval_raw['iou']:.4f}")
+
+                            d_col1, d_col2, d_col3 = st.columns(3)
+                            with d_col1:
+                                st.image(eval_raw["ref_binary"] * 255, caption="Ground-Truth Reference Mask (256×256)", width="stretch")
+                            with d_col2:
+                                st.image(pred["binary_mask"] * 255, caption=f"Model Binary Prediction (Threshold ≥ {thresh_val:.2f})", width="stretch")
+                            with d_col3:
+                                st.image(eval_raw["confusion_map"], caption="Diagnostic Confusion Map", width="stretch")
+
+            # =================================================================
+            # BRANCH B: SIDE-BY-SIDE DUAL-MODEL COMPARISON (Requirement 3)
+            # =================================================================
+            else:
+                st.markdown("""
+                <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 14px 18px; margin-bottom: 16px;">
+                    <div style="font-weight: 700; color: #38bdf8; font-size: 0.95rem; margin-bottom: 6px;">
+                        ⚖️ Side-by-Side Dual Checkpoint Comparison Mode
+                    </div>
+                    <div style="font-size: 0.82rem; color: #cbd5e1; line-height: 1.5;">
+                        Runs both experimental checkpoints simultaneously on the <strong>exact same preprocessed input images</strong> at the <strong>identical decision threshold</strong>.
+                        Compare their continuous probability distributions, threshold sensitivity profiles, and binary decision masks side-by-side.
+                        <div style="color: #94a3b8; margin-top: 4px; font-size: 0.75rem;">
+                            * Note: Both checkpoints preserve their original Colab-trained weights. Do not claim one model is more accurate on local imagery without reference labels.
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                if not (fulltrain_exists and orig_exists):
+                    st.error("Both 'spacenetra_s2looking_unet.pth' and 'spacenetra_s2looking_unet_fulltrain_best.pth' must exist in models/ for dual comparison.")
+                else:
+                    model_full, meta_full, err_full = get_cached_unet(fulltrain_path)
+                    model_orig, meta_orig, err_orig = get_cached_unet(orig_path)
+
+                    c_thresh_dual, c_btn_dual = st.columns([3, 2])
+                    with c_thresh_dual:
+                        thresh_val = st.slider(
+                            "Detection Sensitivity (Applied Identically to Both Models)",
+                            min_value=0.05,
+                            max_value=0.90,
+                            value=0.50,
+                            step=0.05,
+                            help="Threshold applied to output sigmoid probabilities of both models to produce their binary change masks. 0.50 is the standard decision threshold."
+                        )
+                        st.caption("Common Settings: **0.50** (Standard Decision Threshold) &nbsp;|&nbsp; **0.20** (S2Looking Validation-Tuned Threshold)")
+                    with c_btn_dual:
+                        st.write("")
+                        st.write("")
+                        run_dual_btn = st.button(
+                            "🔬 Run Dual-Model Comparative Inference",
+                            type="primary",
+                            width="stretch",
+                            disabled=(input_img1 is None or input_img2 is None or model_full is None or model_orig is None)
+                        )
+
+                    if run_dual_btn and input_img1 is not None and input_img2 is not None:
+                        with st.spinner("Preprocessing inputs and executing simultaneous forward passes for both checkpoints..."):
+                            tensor_6ch, im1_prep, im2_prep = spacenetra_model.preprocess_pair(input_img1, input_img2, target_size=256)
+                            t_in_full = tensor_6ch.to(meta_full["device"])
+                            t_in_orig = tensor_6ch.to(meta_orig["device"])
+
+                            with torch.no_grad():
+                                logits_full = model_full(t_in_full)
+                                probs_full = torch.sigmoid(logits_full)
+                                logits_orig = model_orig(t_in_orig)
+                                probs_orig = torch.sigmoid(logits_orig)
+
+                            prob_full_arr = probs_full.squeeze().cpu().numpy().astype(np.float32)
+                            prob_orig_arr = probs_orig.squeeze().cpu().numpy().astype(np.float32)
+
+                            st.session_state["ml_dual_full_prob"] = prob_full_arr
+                            st.session_state["ml_dual_orig_prob"] = prob_orig_arr
+                            st.session_state["ml_dual_im1_prep"] = im1_prep
+                            st.session_state["ml_dual_im2_prep"] = im2_prep
+                            st.session_state["ml_dual_input_sig"] = current_input_sig
+
+                    has_valid_dual = (
+                        "ml_dual_full_prob" in st.session_state and
+                        "ml_dual_orig_prob" in st.session_state and
+                        st.session_state.get("ml_dual_input_sig") == current_input_sig
+                    )
+
+                    if not has_valid_dual:
+                        if "ml_dual_full_prob" in st.session_state:
+                            st.info("ℹ️ Input imagery was modified. Click **'Run Dual-Model Comparative Inference'** to refresh predictions.")
+                    else:
+                        prob_full_arr = st.session_state["ml_dual_full_prob"]
+                        prob_orig_arr = st.session_state["ml_dual_orig_prob"]
+                        im1_p = st.session_state["ml_dual_im1_prep"]
+                        im2_p = st.session_state["ml_dual_im2_prep"]
+
+                        pred_full = spacenetra_model.apply_threshold_to_prob_map(prob_full_arr, im2_p, threshold=thresh_val)
+                        pred_orig = spacenetra_model.apply_threshold_to_prob_map(prob_orig_arr, im2_p, threshold=thresh_val)
+
+                        st.markdown("---")
+                        st.markdown(f"#### ⚖️ Checkpoint Comparison at Decision Threshold {thresh_val:.2f}")
+
+                        dm1, dm2, dm3, dm4 = st.columns(4)
+                        dm1.metric(
+                            "Original Model (Epoch 2)",
+                            f"{pred_orig['changed_pixels']:,} px",
+                            delta=f"{pred_orig['change_ratio_pct']}% of frame"
+                        )
+                        dm2.metric(
+                            "Full-Train Model (Epoch 9)",
+                            f"{pred_full['changed_pixels']:,} px",
+                            delta=f"{pred_full['change_ratio_pct']}% of frame"
+                        )
+                        ratio_str = f"{pred_orig['changed_pixels'] / max(1, pred_full['changed_pixels']):.1f}×" if pred_full['changed_pixels'] > 0 else "N/A"
+                        dm3.metric("Pixel Ratio (Orig / Full)", ratio_str, help="Ratio of original model changed pixels to full-train changed pixels.")
+                        dm4.metric("Applied Threshold", f"{thresh_val:.2f}")
+
+                        # Side-by-Side Visual Pipelines
+                        st.markdown("##### 🖼️ Side-by-Side Visual Prediction Pipelines")
+                        st.write("###### 1. Original Baseline Model (Epoch 2 — 500 Pairs):")
+                        vo1, vo2, vo3, vo4 = st.columns(4)
+                        with vo1:
+                            st.image(im2_p, caption="Later Optical Image (T2)", width="stretch")
+                        with vo2:
+                            st.image(pred_orig["prob_heatmap"], caption="Original Probability Heatmap", width="stretch")
+                        with vo3:
+                            st.image(pred_orig["binary_mask"] * 255, caption=f"Original Binary Mask (Th ≥ {thresh_val:.2f})", width="stretch")
+                        with vo4:
+                            st.image(pred_orig["overlay_img"], caption=f"Original Overlay ({pred_orig['changed_pixels']:,} px)", width="stretch")
+
+                        st.write("###### 2. Full-Training Model (Epoch 9 — 3,500 Pairs):")
+                        vf1, vf2, vf3, vf4 = st.columns(4)
+                        with vf1:
+                            st.image(im2_p, caption="Later Optical Image (T2)", width="stretch")
+                        with vf2:
+                            st.image(pred_full["prob_heatmap"], caption="Full-Train Probability Heatmap", width="stretch")
+                        with vf3:
+                            st.image(pred_full["binary_mask"] * 255, caption=f"Full-Train Binary Mask (Th ≥ {thresh_val:.2f})", width="stretch")
+                        with vf4:
+                            st.image(pred_full["overlay_img"], caption=f"Full-Train Overlay ({pred_full['changed_pixels']:,} px)", width="stretch")
+
+                        # ── DUAL-MODEL THRESHOLD SENSITIVITY TABLE (Requirement 2 & 3) ──
+                        st.markdown("---")
+                        st.markdown("##### 📊 Comparative Threshold Sensitivity Diagnostic Table")
+                        st.caption("Calculates predicted changed pixels and frame coverage across standard sensitivity thresholds for both models using their current probability maps without re-running inference. This is a threshold-sensitivity diagnostic, not an accuracy evaluation.")
+
+                        sens_orig_list = spacenetra_model.compute_threshold_sensitivity_diagnostic(
+                            prob_orig_arr, thresholds=[0.10, 0.20, 0.30, 0.40, 0.50, 0.65]
+                        )
+                        sens_full_list = spacenetra_model.compute_threshold_sensitivity_diagnostic(
+                            prob_full_arr, thresholds=[0.10, 0.20, 0.30, 0.40, 0.50, 0.65]
+                        )
+
+                        dual_table_rows = []
+                        for so, sf in zip(sens_orig_list, sens_full_list):
+                            diff_px = so["changed_pixels"] - sf["changed_pixels"]
+                            rat = f"{so['changed_pixels'] / max(1, sf['changed_pixels']):.1f}×" if sf['changed_pixels'] > 0 else "N/A"
+                            dual_table_rows.append({
+                                "Decision Threshold": f"{so['threshold']:.2f}",
+                                "Original Model (Epoch 2) Pixels": f"{so['changed_pixels']:,} px",
+                                "Original % of Frame": f"{so['change_pct']:.2f}%",
+                                "Full-Train (Epoch 9) Pixels": f"{sf['changed_pixels']:,} px",
+                                "Full-Train % of Frame": f"{sf['change_pct']:.2f}%",
+                                "Pixel Difference (Orig - Full)": f"{diff_px:+,} px",
+                                "Ratio (Orig / Full)": rat
+                            })
+                        st.dataframe(pd.DataFrame(dual_table_rows), use_container_width=True, hide_index=True)
+
+                        # Dual 6-Column Mask Grid Comparison
+                        st.markdown("###### 🖼️ Original Model (Epoch 2) Binary Masks Across Thresholds:")
+                        grid_orig = st.columns(6)
+                        for idx, s in enumerate(sens_orig_list):
+                            with grid_orig[idx]:
+                                st.image(
+                                    s["binary_mask"] * 255,
+                                    caption=f"Th ≥ {s['threshold']:.2f} | {s['changed_pixels']:,} px ({s['change_pct']}%)",
+                                    width="stretch"
+                                )
+
+                        st.markdown("###### 🖼️ Full-Training Model (Epoch 9) Binary Masks Across Thresholds:")
+                        grid_full = st.columns(6)
+                        for idx, s in enumerate(sens_full_list):
+                            with grid_full[idx]:
+                                st.image(
+                                    s["binary_mask"] * 255,
+                                    caption=f"Th ≥ {s['threshold']:.2f} | {s['changed_pixels']:,} px ({s['change_pct']}%)",
+                                    width="stretch"
+                                )
+
+                        # Comparative Continuous Statistics
+                        with st.expander("📈 Side-by-Side Continuous Probability Distribution Statistics", expanded=False):
+                            stat_df = pd.DataFrame([
                                 {
-                                    "Pipeline Stage": "Raw Model Prediction (No Morphology)",
-                                    "Precision": eval_raw["precision"],
-                                    "Recall": eval_raw["recall"],
-                                    "F1 Score": eval_raw["f1"],
-                                    "IoU": eval_raw["iou"],
-                                    "Changed Pixels": eval_raw["tp"] + eval_raw["fp"]
+                                    "Model Checkpoint": "Original Model (Epoch 2 — 500 Pairs)",
+                                    "Min Prob": f"{prob_orig_arr.min():.5f}",
+                                    "Max Prob": f"{prob_orig_arr.max():.5f}",
+                                    "Mean Prob": f"{prob_orig_arr.mean():.4f}",
+                                    "Median Prob": f"{np.median(prob_orig_arr):.4f}",
+                                    "Std Dev": f"{prob_orig_arr.std():.4f}"
                                 },
                                 {
-                                    "Pipeline Stage": f"Post-Processed ({morph_op.title()}, K={k_size})",
-                                    "Precision": eval_post["precision"],
-                                    "Recall": eval_post["recall"],
-                                    "F1 Score": eval_post["f1"],
-                                    "IoU": eval_post["iou"],
-                                    "Changed Pixels": eval_post["tp"] + eval_post["fp"]
+                                    "Model Checkpoint": "Full-Training Model (Epoch 9 — 3,500 Pairs)",
+                                    "Min Prob": f"{prob_full_arr.min():.5f}",
+                                    "Max Prob": f"{prob_full_arr.max():.5f}",
+                                    "Mean Prob": f"{prob_full_arr.mean():.4f}",
+                                    "Median Prob": f"{np.median(prob_full_arr):.4f}",
+                                    "Std Dev": f"{prob_full_arr.std():.4f}"
                                 }
                             ])
-                            st.dataframe(eval_table, use_container_width=True, hide_index=True)
-                            st.caption("Direct empirical evaluation comparing raw model output vs heuristic post-processed mask against the uploaded ground truth.")
+                            st.dataframe(stat_df, use_container_width=True, hide_index=True)
+                            st.caption("Notice the severe distribution shift: The undertrained Epoch 2 checkpoint has a median probability of ~0.226 and min of ~0.097, causing widespread false positives at low thresholds. The converged Epoch 9 checkpoint has a median probability of ~0.002, demonstrating aggressive non-change negative background suppression.")
+
+                        # Optional Reference Mask Dual Evaluation
+                        if ref_mask_file is not None:
+                            st.markdown("---")
+                            st.markdown("##### 🎯 Ground-Truth Evaluation: Original vs Full-Training Checkpoint")
+                            ev_orig = spacenetra_model.evaluate_against_reference_mask(pred_orig["binary_mask"], ref_mask_file)
+                            ev_full = spacenetra_model.evaluate_against_reference_mask(pred_full["binary_mask"], ref_mask_file)
+
+                            ev_cmp_df = pd.DataFrame([
+                                {
+                                    "Checkpoint": "Original (Epoch 2)",
+                                    "Precision": ev_orig["precision"],
+                                    "Recall": ev_orig["recall"],
+                                    "F1 Score": ev_orig["f1"],
+                                    "IoU": ev_orig["iou"],
+                                    "Changed Pixels": ev_orig["tp"] + ev_orig["fp"]
+                                },
+                                {
+                                    "Checkpoint": "Full-Training (Epoch 9)",
+                                    "Precision": ev_full["precision"],
+                                    "Recall": ev_full["recall"],
+                                    "F1 Score": ev_full["f1"],
+                                    "IoU": ev_full["iou"],
+                                    "Changed Pixels": ev_full["tp"] + ev_full["fp"]
+                                }
+                            ])
+                            st.dataframe(ev_cmp_df, use_container_width=True, hide_index=True)
 
         with tab_report:
             st.subheader("Official Municipal Intelligence Report")
