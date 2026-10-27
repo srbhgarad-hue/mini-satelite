@@ -25,27 +25,57 @@ DEFAULT_CHECKPOINT_PATH = FULLTRAIN_CHECKPOINT_PATH
 CHECKPOINTS_CONFIG: Dict[str, Dict] = {
     "fulltrain": {
         "id": "fulltrain",
-        "title": "Full-training model — trained on 3,500 pairs, best checkpoint from epoch 9",
+        "title": "Full-training model — trained on 3,500 pairs; best checkpoint from epoch 9",
         "short_label": "Full-Training Model (3,500 pairs, Epoch 9 best)",
         "path": FULLTRAIN_CHECKPOINT_PATH,
         "epoch": 9,
         "training_pairs": 3500,
         "validation_pairs": 500,
         "description": "Trained in Google Colab on all 3,500 training pairs of the S2Looking benchmark dataset. Model selection evaluated on 500 validation pairs and final evaluation on 1,000 held-out test pairs.",
-        "metrics_val": {"precision": 0.4403, "recall": 0.3516, "f1": 0.3910, "iou": 0.2430, "loss": 0.7941},
-        "metrics_test": {"test_pairs": 1000, "precision": 0.3829, "recall": 0.3181, "f1": 0.3475, "iou": 0.2103}
+        "metrics_val": {
+            "samples": 500,
+            "precision": 0.4403,
+            "recall": 0.3516,
+            "f1": 0.3910,
+            "iou": 0.2430,
+            "loss": 0.7941
+        },
+        "metrics_test": {
+            "samples": 1000,
+            "threshold": 0.50,
+            "precision": 0.3829,
+            "recall": 0.3181,
+            "f1": 0.3475,
+            "iou": 0.2103
+        },
+        "metrics_test_th20": {
+            "samples": 1000,
+            "threshold": 0.20,
+            "precision": 0.3425,
+            "recall": 0.3634,
+            "f1": 0.3526,
+            "iou": 0.2141
+        }
     },
     "initial": {
         "id": "initial",
-        "title": "Initial model — trained on 500 S2Looking training pairs",
-        "short_label": "Initial Model (500 pairs, Epoch 2)",
+        "title": "Original model — initial 500-pair experiment",
+        "short_label": "Original Model (500 pairs, Epoch 2)",
         "path": INITIAL_CHECKPOINT_PATH,
         "epoch": 2,
         "training_pairs": 500,
         "validation_pairs": 100,
         "description": "Trained in Google Colab on a sampled 500-pair subset of the S2Looking benchmark dataset. Model selection evaluated on 100 validation pairs.",
-        "metrics_val": {"precision": 0.2993, "recall": 0.1534, "f1": 0.2028, "iou": 0.1129, "loss": 1.1263},
-        "metrics_test": None
+        "metrics_val": {
+            "samples": 100,
+            "precision": 0.2993,
+            "recall": 0.1534,
+            "f1": 0.2028,
+            "iou": 0.1129,
+            "loss": 1.1263
+        },
+        "metrics_test": None,
+        "metrics_test_th20": None
     }
 }
 
@@ -149,13 +179,23 @@ def load_model(
         validation_metrics = checkpoint.get("validation_metrics", default_val)
 
         heldout_test_metrics = None
+        heldout_test_metrics_th20 = None
         if ckpt_epoch == 9 or "fulltrain" in checkpoint_path:
             heldout_test_metrics = {
-                "test_pairs": 1000,
+                "samples": 1000,
+                "threshold": 0.50,
                 "precision": 0.3829,
                 "recall": 0.3181,
                 "f1": 0.3475,
                 "iou": 0.2103
+            }
+            heldout_test_metrics_th20 = {
+                "samples": 1000,
+                "threshold": 0.20,
+                "precision": 0.3425,
+                "recall": 0.3634,
+                "f1": 0.3526,
+                "iou": 0.2141
             }
 
         metadata = {
@@ -169,6 +209,7 @@ def load_model(
             "validation_pairs": validation_pairs,
             "validation_metrics": validation_metrics,
             "heldout_test_metrics": heldout_test_metrics,
+            "heldout_test_metrics_th20": heldout_test_metrics_th20,
             "is_experimental": True,
             "device": device
         }
@@ -238,7 +279,7 @@ def generate_probability_heatmap(prob_map: np.ndarray, colormap: int = cv2.COLOR
 def apply_threshold_to_prob_map(
     prob_map: np.ndarray,
     later_pil: Image.Image,
-    threshold: float = 0.50
+    threshold: float = 0.20
 ) -> Dict:
     """
     Applies a decision threshold to an existing probability map without re-running model forward pass.
@@ -280,7 +321,7 @@ def predict_change(
     model: SpaceNetraUNet,
     tensor_6ch: torch.Tensor,
     later_pil: Image.Image,
-    threshold: float = 0.50,
+    threshold: float = 0.20,
     device: str = "cpu"
 ) -> Dict:
     """

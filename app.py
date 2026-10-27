@@ -702,7 +702,7 @@ if app_mode == "🛰️ Satellite Change Detection":
 
         # Safe defaults for ML Model info in municipal reports
         ckpt_cfg = spacenetra_model.CHECKPOINTS_CONFIG["fulltrain"]
-        thresh_val = 0.50
+        thresh_val = 0.20
 
         # ── NEW TAB: EXPERIMENTAL ML CHANGE DETECTION (S2LOOKING U-NET) ──
         with tab_ml_unet:
@@ -710,75 +710,103 @@ if app_mode == "🛰️ Satellite Change Detection":
             st.caption("Deep-learning binary change-detection neural network. Evaluate benchmark checkpoints, adjust sensitivity thresholds, and validate against ground-truth reference masks.")
 
             # 1. Model Checkpoint Selection (Requirement 1)
-            ckpt_options = [
-                "Full-training model — trained on 3,500 pairs, best checkpoint from epoch 9",
-                "Initial model — trained on 500 S2Looking training pairs"
-            ]
-            selected_ckpt_title = st.selectbox(
-                "Select Model Checkpoint:",
-                ckpt_options,
-                index=0,
-                help="Choose which experimental U-Net checkpoint to load for change probability inference."
-            )
+            title_fulltrain = "Full-training model — trained on 3,500 pairs; best checkpoint from epoch 9"
+            title_orig = "Original model — initial 500-pair experiment"
 
-            is_fulltrain = "3,500 pairs" in selected_ckpt_title
-            selected_ckpt_key = "fulltrain" if is_fulltrain else "initial"
-            ckpt_cfg = spacenetra_model.CHECKPOINTS_CONFIG[selected_ckpt_key]
-            selected_ckpt_path = ckpt_cfg["path"]
+            fulltrain_path = spacenetra_model.FULLTRAIN_CHECKPOINT_PATH
+            orig_path = spacenetra_model.INITIAL_CHECKPOINT_PATH
+            fulltrain_exists = os.path.exists(fulltrain_path)
+            orig_exists = os.path.exists(orig_path)
 
-            # Model Loading via Separate Cache (Requirement 1: Load strictly, cache each model separately)
-            @st.cache_resource
-            def get_cached_unet(path: str):
-                return spacenetra_model.load_model(path)
+            available_options = []
+            if fulltrain_exists:
+                available_options.append(title_fulltrain)
+            if orig_exists:
+                available_options.append(title_orig)
 
-            ckpt_exists = os.path.exists(selected_ckpt_path)
-            if not ckpt_exists:
-                st.warning(f"⚠️ Checkpoint file '{selected_ckpt_path}' is currently unavailable on disk. Please place the model weights file in the 'models/' directory to enable inference with this model.")
-                ml_model, ml_meta, ml_err = None, None, f"Checkpoint not found on disk: {selected_ckpt_path}"
+            if not available_options:
+                st.warning("⚠️ No model checkpoints found on disk in 'models/'. Please place 'spacenetra_s2looking_unet_fulltrain_best.pth' or 'spacenetra_s2looking_unet.pth' in the models directory to enable inference.")
+                selected_ckpt_title = None
+                is_fulltrain = True
+                selected_ckpt_key = "fulltrain"
+                ckpt_cfg = spacenetra_model.CHECKPOINTS_CONFIG["fulltrain"]
+                selected_ckpt_path = fulltrain_path
+                ml_model, ml_meta, ml_err = None, None, "No checkpoints available on disk"
             else:
+                selected_ckpt_title = st.selectbox(
+                    "Select Model Checkpoint:",
+                    available_options,
+                    index=0,
+                    help="Choose which experimental U-Net checkpoint to load for change probability inference. Full-training model is default."
+                )
+
+                is_fulltrain = (selected_ckpt_title == title_fulltrain)
+                selected_ckpt_key = "fulltrain" if is_fulltrain else "initial"
+                ckpt_cfg = spacenetra_model.CHECKPOINTS_CONFIG[selected_ckpt_key]
+                selected_ckpt_path = ckpt_cfg["path"]
+
+                # Model Loading via Separate Cache (Requirement 1: Load strictly, cache each model separately)
+                @st.cache_resource
+                def get_cached_unet(path: str):
+                    return spacenetra_model.load_model(path)
+
                 ml_model, ml_meta, ml_err = get_cached_unet(selected_ckpt_path)
 
-            # Honest Model-Status Notice & Benchmark Metrics Display (Requirements 1 & 3)
+            # Honest Model-Status Notice & Compact Benchmark Metrics Display (Requirements 1 & 4)
             if is_fulltrain:
                 badge_html = '<span style="background: #10b981; color: #064e3b; font-weight: 700; font-size: 0.72rem; padding: 3px 10px; border-radius: 4px;">FULL TRAIN CHECKPOINT (EPOCH 9)</span>'
                 desc_text = "This deep-learning model was trained in Google Colab using all <strong>3,500 training pairs</strong> of the <strong>S2Looking</strong> satellite building change benchmark, with model selection on <strong>500 validation pairs</strong> and final evaluation on <strong>1,000 held-out test pairs</strong>. Output is an exploratory <strong>binary change probability mask only</strong>."
                 metrics_grid_html = """
-                <div style="background: rgba(15, 23, 42, 0.6); border-radius: 6px; padding: 12px 16px; margin-bottom: 10px;">
-                    <div style="font-size: 0.76rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #38bdf8; margin-bottom: 8px;">
-                        Dataset-Level Benchmark Results (S2Looking Benchmark Evaluation):
+                <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 14px 18px; margin-bottom: 12px;">
+                    <div style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #38bdf8; margin-bottom: 10px;">
+                        📊 Reported S2Looking Dataset-Level Benchmark Metrics (Compact Evaluation Panel):
                     </div>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; font-size: 0.80rem; color: #94a3b8;">
-                        <div style="background: rgba(30, 41, 59, 0.5); padding: 10px 14px; border-radius: 6px; border-left: 3px solid #38bdf8;">
-                            <div style="font-weight: 600; color: #e2e8f0; margin-bottom: 4px;">Validation Set (500 Pairs)</div>
-                            <div>Precision: <strong style="color: #f8fafc;">0.4403</strong> &nbsp;|&nbsp; Recall: <strong style="color: #f8fafc;">0.3516</strong></div>
-                            <div>F1 Score: <strong style="color: #10b981;">0.3910</strong> &nbsp;|&nbsp; IoU: <strong style="color: #10b981;">0.2430</strong></div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; font-size: 0.81rem; color: #94a3b8;">
+                        <div style="background: rgba(30, 41, 59, 0.55); padding: 12px 14px; border-radius: 6px; border-left: 3px solid #38bdf8;">
+                            <div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">Validation Set (500 Samples)</div>
+                            <div>Precision: <strong style="color: #f8fafc;">44.03%</strong> &nbsp;|&nbsp; Recall: <strong style="color: #f8fafc;">35.16%</strong></div>
+                            <div>F1 Score: <strong style="color: #10b981;">39.10%</strong> &nbsp;|&nbsp; IoU: <strong style="color: #10b981;">24.30%</strong></div>
+                            <div style="font-size: 0.70rem; color: #64748b; margin-top: 4px;">* Model selection checkpoint (Epoch 9)</div>
                         </div>
-                        <div style="background: rgba(30, 41, 59, 0.5); padding: 10px 14px; border-radius: 6px; border-left: 3px solid #f59e0b;">
-                            <div style="font-weight: 600; color: #e2e8f0; margin-bottom: 4px;">Held-Out Test Set (1,000 Pairs)</div>
-                            <div>Precision: <strong style="color: #f8fafc;">0.3829</strong> &nbsp;|&nbsp; Recall: <strong style="color: #f8fafc;">0.3181</strong></div>
-                            <div>F1 Score: <strong style="color: #f59e0b;">0.3475</strong> &nbsp;|&nbsp; IoU: <strong style="color: #f59e0b;">0.2103</strong></div>
+                        <div style="background: rgba(30, 41, 59, 0.55); padding: 12px 14px; border-radius: 6px; border-left: 3px solid #f59e0b;">
+                            <div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">Held-Out Test Set (1,000 Samples)</div>
+                            <div style="font-size: 0.72rem; color: #f59e0b; margin-bottom: 3px;">Decision Threshold: 0.50</div>
+                            <div>Precision: <strong style="color: #f8fafc;">38.29%</strong> &nbsp;|&nbsp; Recall: <strong style="color: #f8fafc;">31.81%</strong></div>
+                            <div>F1 Score: <strong style="color: #f59e0b;">34.75%</strong> &nbsp;|&nbsp; IoU: <strong style="color: #f59e0b;">21.03%</strong></div>
                         </div>
+                        <div style="background: rgba(30, 41, 59, 0.55); padding: 12px 14px; border-radius: 6px; border-left: 3px solid #10b981;">
+                            <div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">Held-Out Test Set (1,000 Samples)</div>
+                            <div style="font-size: 0.72rem; color: #10b981; margin-bottom: 3px;">Threshold: 0.20 (Validation-Tuned)</div>
+                            <div>Precision: <strong style="color: #f8fafc;">34.25%</strong> &nbsp;|&nbsp; Recall: <strong style="color: #f8fafc;">36.34%</strong></div>
+                            <div>F1 Score: <strong style="color: #10b981;">35.26%</strong> &nbsp;|&nbsp; IoU: <strong style="color: #10b981;">21.41%</strong></div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.74rem; color: #94a3b8; line-height: 1.45;">
+                        ⚠️ <strong>Benchmark Note:</strong> The detection threshold of <strong>0.20</strong> was selected using validation data to improve recall on subtle building changes. These are dataset-level benchmark results on S2Looking, <em>not</em> predictions or accuracy for Chhatrapati Sambhajinagar or the current area. This model is strictly an <strong>experimental prototype</strong> and is <strong>not production-ready</strong>.
                     </div>
                 </div>
                 """
             else:
-                badge_html = '<span style="background: #f59e0b; color: #0b0f19; font-weight: 700; font-size: 0.72rem; padding: 3px 10px; border-radius: 4px;">INITIAL BASELINE CHECKPOINT (EPOCH 2)</span>'
+                badge_html = '<span style="background: #f59e0b; color: #0b0f19; font-weight: 700; font-size: 0.72rem; padding: 3px 10px; border-radius: 4px;">ORIGINAL BASELINE CHECKPOINT (EPOCH 2)</span>'
                 desc_text = "This deep-learning model was trained in Google Colab on a sampled subset (<strong>500 training pairs</strong>) of the <strong>S2Looking</strong> satellite building change benchmark, with model selection on <strong>100 validation pairs</strong>. Output is an exploratory <strong>binary change probability mask only</strong>."
                 metrics_grid_html = """
-                <div style="background: rgba(15, 23, 42, 0.6); border-radius: 6px; padding: 12px 16px; margin-bottom: 10px;">
-                    <div style="font-size: 0.76rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #38bdf8; margin-bottom: 8px;">
-                        Dataset-Level Benchmark Results (S2Looking Benchmark Evaluation):
+                <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 8px; padding: 14px 18px; margin-bottom: 12px;">
+                    <div style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #f59e0b; margin-bottom: 10px;">
+                        📊 S2Looking Dataset-Level Benchmark Metrics (Original Baseline Experiment):
                     </div>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; font-size: 0.80rem; color: #94a3b8;">
-                        <div style="background: rgba(30, 41, 59, 0.5); padding: 10px 14px; border-radius: 6px; border-left: 3px solid #38bdf8;">
-                            <div style="font-weight: 600; color: #e2e8f0; margin-bottom: 4px;">Validation Set (100 Pairs)</div>
-                            <div>Precision: <strong style="color: #f8fafc;">0.2993</strong> &nbsp;|&nbsp; Recall: <strong style="color: #f8fafc;">0.1534</strong></div>
-                            <div>F1 Score: <strong style="color: #10b981;">0.2028</strong> &nbsp;|&nbsp; IoU: <strong style="color: #10b981;">0.1129</strong></div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; font-size: 0.81rem; color: #94a3b8;">
+                        <div style="background: rgba(30, 41, 59, 0.55); padding: 12px 14px; border-radius: 6px; border-left: 3px solid #38bdf8;">
+                            <div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">Validation Set (100 Samples)</div>
+                            <div>Precision: <strong style="color: #f8fafc;">29.93%</strong> &nbsp;|&nbsp; Recall: <strong style="color: #f8fafc;">15.34%</strong></div>
+                            <div>F1 Score: <strong style="color: #10b981;">20.28%</strong> &nbsp;|&nbsp; IoU: <strong style="color: #10b981;">11.29%</strong></div>
                         </div>
-                        <div style="background: rgba(30, 41, 59, 0.5); padding: 10px 14px; border-radius: 6px; border-left: 3px solid #64748b;">
-                            <div style="font-weight: 600; color: #94a3b8; margin-bottom: 4px;">Held-Out Test Set (1,000 Pairs)</div>
+                        <div style="background: rgba(30, 41, 59, 0.55); padding: 12px 14px; border-radius: 6px; border-left: 3px solid #64748b;">
+                            <div style="font-weight: 700; color: #94a3b8; margin-bottom: 4px;">Held-Out Test Set (1,000 Samples)</div>
                             <div style="font-style: italic; color: #64748b;">Not evaluated on held-out test set</div>
                         </div>
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.74rem; color: #94a3b8; line-height: 1.45;">
+                        ⚠️ <strong>Benchmark Note:</strong> These metrics are dataset-level evaluation benchmarks across 100 S2Looking validation pairs, <em>not</em> accuracy or performance measurements for the currently selected area. This model is strictly an experimental prototype.
                     </div>
                 </div>
                 """
@@ -795,9 +823,6 @@ if app_mode == "🛰️ Satellite Change Detection":
                     {desc_text} Model predictions reflect pixel-level change probabilities and do <strong>not</strong> constitute confirmed new construction, demolition, or verified municipal violations.
                 </p>
                 {metrics_grid_html}
-                <div style="font-size: 0.74rem; color: #94a3b8; font-style: italic;">
-                    * Critical Notice: These metrics are dataset-level evaluation benchmarks across standard S2Looking evaluation sets, NOT accuracy or performance measurements for Chhatrapati Sambhajinagar or the currently selected area. Do not label validation-set metrics as accuracy for the current area.
-                </div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -866,9 +891,9 @@ if app_mode == "🛰️ Satellite Change Detection":
                         "Detection Sensitivity",
                         min_value=0.05,
                         max_value=0.90,
-                        value=0.50,
+                        value=0.20,
                         step=0.05,
-                        help="Threshold applied to output sigmoid probabilities to produce the binary change decision mask."
+                        help="Threshold applied to output sigmoid probabilities to produce the binary change decision mask. A threshold of 0.20 was selected using validation data."
                     )
                 with c_btn:
                     st.write("") # spacing
@@ -1101,11 +1126,16 @@ if app_mode == "🛰️ Satellite Change Detection":
             ml_train_pairs = ckpt_cfg.get("training_pairs", 3500)
             ml_val_pairs = ckpt_cfg.get("val_pairs", 500)
             ml_val_metrics = ckpt_cfg.get("val_metrics", {})
-            ml_val_str = f"F1: {ml_val_metrics.get('f1', 0.0):.4f} / IoU: {ml_val_metrics.get('iou', 0.0):.4f} ({ml_val_pairs} pairs)"
+            ml_val_str = f"F1: {ml_val_metrics.get('f1', 0.0)*100:.2f}% / IoU: {ml_val_metrics.get('iou', 0.0)*100:.2f}% ({ml_val_pairs} samples)"
             ml_test_metrics = ckpt_cfg.get("test_metrics")
             ml_test_str = (
-                f"F1: {ml_test_metrics.get('f1', 0.0):.4f} / IoU: {ml_test_metrics.get('iou', 0.0):.4f} ({ckpt_cfg.get('test_pairs', 1000)} pairs)"
+                f"F1: {ml_test_metrics.get('f1', 0.0)*100:.2f}% / IoU: {ml_test_metrics.get('iou', 0.0)*100:.2f}% ({ckpt_cfg.get('test_pairs', 1000)} samples, Th=0.50)"
                 if ml_test_metrics else "Not evaluated on held-out test set"
+            )
+            ml_test_th20_metrics = ckpt_cfg.get("metrics_test_th20")
+            ml_test_th20_str = (
+                f"F1: {ml_test_th20_metrics.get('f1', 0.0)*100:.2f}% / IoU: {ml_test_th20_metrics.get('iou', 0.0)*100:.2f}% (1,000 samples, Th=0.20)"
+                if ml_test_th20_metrics else "Not evaluated"
             )
 
             rep_text = f"""================================================================================
@@ -1139,9 +1169,10 @@ EXPERIMENTAL ML MODEL PROVENANCE (S2LOOKING U-NET):
 - Model Architecture        : 6-Channel Bitemporal U-Net (256x256 resolution)
 - Training Dataset          : S2Looking Dataset ({ml_train_pairs:,} training pairs)
 - Benchmark Val F1 / IoU    : {ml_val_str}
-- Held-Out Test F1 / IoU    : {ml_test_str}
-- Detection Sensitivity     : Threshold ≥ {thresh_val:.2f}
-- Operational Caveat        : Dataset-level benchmarks only. Exploratory binary change probability mask, not verified construction/demolition.
+- Held-Out Test (Th=0.50)   : {ml_test_str}
+- Held-Out Test (Th=0.20)   : {ml_test_th20_str}
+- Detection Sensitivity     : Threshold ≥ {thresh_val:.2f} (Default 0.20 selected on validation data)
+- Operational Caveat        : Dataset-level benchmarks only. Exploratory binary change probability mask, not verified construction/demolition. Experimental research prototype, not production-ready.
 ================================================================================"""
             st.code(rep_text, language="text")
             st.download_button(

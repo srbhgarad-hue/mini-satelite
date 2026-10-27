@@ -53,12 +53,15 @@ def test_checkpoint_strict_loading():
     assert meta_full["validation_pairs"] == 500, f"Expected 500 val pairs, got {meta_full.get('validation_pairs')}"
     assert round(meta_full["validation_metrics"]["f1"], 4) == 0.3910, f"Unexpected Val F1: {meta_full['validation_metrics']['f1']}"
     assert round(meta_full["validation_metrics"]["iou"], 4) == 0.2430, f"Unexpected Val IoU: {meta_full['validation_metrics']['iou']}"
-    assert round(meta_full["heldout_test_metrics"]["f1"], 4) == 0.3475, f"Unexpected Test F1: {meta_full['heldout_test_metrics']['f1']}"
-    assert round(meta_full["heldout_test_metrics"]["iou"], 4) == 0.2103, f"Unexpected Test IoU: {meta_full['heldout_test_metrics']['iou']}"
+    assert round(meta_full["heldout_test_metrics"]["f1"], 4) == 0.3475, f"Unexpected Test F1 @ 0.50: {meta_full['heldout_test_metrics']['f1']}"
+    assert round(meta_full["heldout_test_metrics"]["iou"], 4) == 0.2103, f"Unexpected Test IoU @ 0.50: {meta_full['heldout_test_metrics']['iou']}"
+    assert round(meta_full["heldout_test_metrics_th20"]["f1"], 4) == 0.3526, f"Unexpected Test F1 @ 0.20: {meta_full['heldout_test_metrics_th20']['f1']}"
+    assert round(meta_full["heldout_test_metrics_th20"]["iou"], 4) == 0.2141, f"Unexpected Test IoU @ 0.20: {meta_full['heldout_test_metrics_th20']['iou']}"
     print("  [PASS] Full-train checkpoint (Epoch 9) loaded strictly with strict=True!")
     print(f"    - Training: {meta_full['training_pairs']} pairs | Validation: {meta_full['validation_pairs']} pairs")
     print(f"    - Benchmark Val F1: {meta_full['validation_metrics']['f1']:.4f} | IoU: {meta_full['validation_metrics']['iou']:.4f}")
-    print(f"    - Held-Out Test F1: {meta_full['heldout_test_metrics']['f1']:.4f} | IoU: {meta_full['heldout_test_metrics']['iou']:.4f}")
+    print(f"    - Held-Out Test (Th=0.50) F1: {meta_full['heldout_test_metrics']['f1']:.4f} | IoU: {meta_full['heldout_test_metrics']['iou']:.4f}")
+    print(f"    - Held-Out Test (Th=0.20) F1: {meta_full['heldout_test_metrics_th20']['f1']:.4f} | IoU: {meta_full['heldout_test_metrics_th20']['iou']:.4f}")
 
     # 2. Load initial baseline checkpoint strictly
     model_init, meta_init, err_init = spacenetra_model.load_model(init_cfg["path"], device="cpu")
@@ -71,7 +74,7 @@ def test_checkpoint_strict_loading():
     print(f"    - Training: {meta_init['training_pairs']} pairs | Validation: {meta_init['validation_pairs']} pairs")
     print(f"    - Benchmark Val F1: {meta_init['validation_metrics']['f1']:.4f} | IoU: {meta_init['validation_metrics']['iou']:.4f}")
 
-    return model_full, meta_full
+    return (model_full, meta_full), (model_init, meta_init)
 
 
 def test_preprocessing_compliance():
