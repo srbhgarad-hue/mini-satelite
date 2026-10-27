@@ -75,11 +75,21 @@ def test_live_acquisition_failure_safety():
         assert timeline["acquisition_error"] is not None
         assert "could not be retrieved" in timeline["acquisition_error"]
         assert timeline["provenance"] == "UNAVAILABLE"
-
-    # CRITICAL: Confirm source directory was NOT polluted with any new files
-    files_after = set(os.listdir(source_dir))
-    diff = files_after - files_before
-    assert len(diff) == 0, f"Provenance violation: Silent synthetic file written to source: {diff}"
+        # CRITICAL: Confirm source directory was NOT polluted with any new files
+        files_after = set(os.listdir(source_dir))
+        diff = files_after - files_before
+        assert len(diff) == 0, f"Provenance violation: Silent synthetic file written to source: {diff}"
+    else:
+        # If live acquisition succeeded, verify newly downloaded files are verified real (not synthetic) and clean up
+        files_after = set(os.listdir(source_dir))
+        diff = files_after - files_before
+        for f in diff:
+            fpath = os.path.join(source_dir, f)
+            assert not photo_streamer.is_procedural_synthetic(fpath), f"Downloaded tile marked synthetic: {f}"
+            try:
+                os.remove(fpath)
+            except OSError:
+                pass
     print("[PASS] Acquisition failure safety verified: No silent synthetic fallbacks generated in live mode.")
 
 def test_explicit_synthetic_demo_mode():
