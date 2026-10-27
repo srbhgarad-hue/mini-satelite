@@ -189,9 +189,38 @@ def test_threshold_responsiveness_and_slider(model):
     print(f"  [PASS] Detection-threshold slider dynamically refreshes mask (difference: {mask_diff:,} pixels)")
 
 
+def test_model_switching_differentiation(model_full, model_init):
+    print("\n------------------------------------------------------------------")
+    print("[TEST 5] Model Switching & Prediction Refresh Verification")
+    print("------------------------------------------------------------------")
+    t1_path = "data/change_detection/source/csn_7dca6e98_2016.jpg"
+    t2_path = "data/change_detection/source/csn_7dca6e98_current.jpg"
+    assert os.path.exists(t1_path) and os.path.exists(t2_path), "Test satellite tiles missing"
+
+    tensor_real, _, r2 = spacenetra_model.preprocess_pair(t1_path, t2_path, target_size=256)
+
+    # Run inference with full-training model at threshold 0.20
+    pred_full = spacenetra_model.predict_change(model_full, tensor_real, r2, threshold=0.20, device="cpu")
+    # Run inference with initial model at threshold 0.20
+    pred_init = spacenetra_model.predict_change(model_init, tensor_real, r2, threshold=0.20, device="cpu")
+
+    # Verify probability maps differ significantly between the 2 checkpoints
+    prob_diff = np.abs(pred_full["prob_map"] - pred_init["prob_map"]).mean()
+    assert prob_diff > 0.001, f"Model switching failed to produce differentiated outputs: mean diff {prob_diff}"
+
+    # Verify binary masks differ
+    mask_diff = np.sum(pred_full["binary_mask"] != pred_init["binary_mask"])
+    assert mask_diff > 0, "Both models produced completely identical binary masks!"
+
+    print(f"  [PASS] Model switching verified on active satellite tiles:")
+    print(f"    - Full-train (Epoch 9) changed pixels @ 0.20: {pred_full['changed_pixels']:,} px")
+    print(f"    - Initial (Epoch 2) changed pixels @ 0.20: {pred_init['changed_pixels']:,} px")
+    print(f"    - Prediction difference: {mask_diff:,} pixels (Mean continuous probability delta: {prob_diff:.4f})")
+
+
 def test_heatmap_generation():
     print("\n------------------------------------------------------------------")
-    print("[TEST 5] Probability Heatmap Visualization Verification")
+    print("[TEST 6] Probability Heatmap Visualization Verification")
     print("------------------------------------------------------------------")
     # Synthetic continuous probability ramp from 0.0 to 1.0
     synth_probs = np.linspace(0.0, 1.0, 256 * 256).reshape((256, 256)).astype(np.float32)
@@ -207,7 +236,7 @@ def test_heatmap_generation():
 
 def test_optional_morphology_postprocessing():
     print("\n------------------------------------------------------------------")
-    print("[TEST 6] Optional Morphology Post-Processing Verification")
+    print("[TEST 7] Optional Morphology Post-Processing Verification")
     print("------------------------------------------------------------------")
     # Create test binary mask with isolated noise speck and a small hole in a building
     test_mask = np.zeros((256, 256), dtype=np.uint8)
@@ -235,7 +264,7 @@ def test_optional_morphology_postprocessing():
 
 def test_reference_mask_pair_evaluation():
     print("\n------------------------------------------------------------------")
-    print("[TEST 7] Pair-Specific Reference Mask Evaluation Verification")
+    print("[TEST 8] Pair-Specific Reference Mask Evaluation Verification")
     print("------------------------------------------------------------------")
     # Synthetic ground truth: 100x100 block
     ref_gt = np.zeros((256, 256), dtype=np.uint8)
@@ -292,7 +321,7 @@ def test_reference_mask_pair_evaluation():
 
 def test_traditional_detection_and_semantic_search():
     print("\n------------------------------------------------------------------")
-    print("[TEST 8] Preservation of Traditional Detection & Semantic Search")
+    print("[TEST 9] Preservation of Traditional Detection & Semantic Search")
     print("------------------------------------------------------------------")
     # 1. Traditional building detection
     print("  Verifying traditional multi-temporal building detector...")
@@ -338,16 +367,17 @@ def run_all_tests():
     print("==================================================================")
     print(" SPACE NETRA: COMPLETE ML MODEL & INTEGRATION VALIDATION SUITE   ")
     print("==================================================================")
-    model, metadata = test_checkpoint_strict_loading()
+    (model_full, meta_full), (model_init, meta_init) = test_checkpoint_strict_loading()
     tensor_6ch, im2_res = test_preprocessing_compliance()
-    test_inference_and_dimensions(model, tensor_6ch, im2_res)
-    test_threshold_responsiveness_and_slider(model)
+    test_inference_and_dimensions(model_full, tensor_6ch, im2_res)
+    test_threshold_responsiveness_and_slider(model_full)
+    test_model_switching_differentiation(model_full, model_init)
     test_heatmap_generation()
     test_optional_morphology_postprocessing()
     test_reference_mask_pair_evaluation()
     test_traditional_detection_and_semantic_search()
     print("\n==================================================================")
-    print(" ALL 8 VALIDATION REQUIREMENTS PASSED SUCCESSFULLY!               ")
+    print(" ALL 9 VALIDATION REQUIREMENTS PASSED SUCCESSFULLY!               ")
     print("==================================================================")
 
 
