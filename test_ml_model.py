@@ -4,16 +4,18 @@ test_ml_model.py
 Comprehensive Validation Suite for Space Netra Experimental U-Net Integration.
 
 Verifies:
-1. Loading the new full-training checkpoint (models/spacenetra_s2looking_unet_fulltrain_best.pth).
-2. Strict state-dictionary loading compatibility (strict=True) and preservation of original checkpoint.
-3. Preprocessing compliance (bilinear 256x256, [0, 1] normalized, earlier RGB + later RGB in 6-channel CHW format).
-4. Output mask dimensions (256x256) and tensor shapes.
-5. Finite probabilities in range [0, 1].
-6. Binary mask responsiveness across multiple threshold values.
-7. Preservation of existing semantic-search (CLIP + FAISS) and traditional detection features.
+1. Checkpoint Registry: Both checkpoints configured with accurate descriptions and loaded strictly with strict=True.
+2. Training Preprocessing Compliance (bilinear 256x256, [0, 1] normalized, earlier RGB + later RGB in 6-channel CHW format).
+3. Output Mask Dimensions (256x256) and continuous finite probabilities strictly in [0, 1].
+4. Real Detection-Threshold Slider responsiveness (0.05 to 0.90) and instant probability-map re-thresholding without inference re-run.
+5. Probability Heatmap generation using continuous probability values with OpenCV colormap.
+6. Optional Morphology Post-Processing (opening, closing, closing_opening) as a separate non-destructive filter.
+7. Pair-Specific Ground-Truth Reference Mask Evaluation (precision, recall, F1, IoU, confusion map).
+8. Preservation of existing semantic-search (CLIP + FAISS) and traditional detection features.
 """
 
 import os
+import io
 import numpy as np
 from PIL import Image
 import torch
@@ -24,49 +26,58 @@ import building_detector
 
 def test_checkpoint_strict_loading():
     print("------------------------------------------------------------------")
-    print("[TEST 1 & 2] Loading New Checkpoint & Strict State-Dict Verification")
+    print("[TEST 1] Checkpoint Selector & Strict State-Dict Verification")
     print("------------------------------------------------------------------")
-    new_ckpt = spacenetra_model.DEFAULT_CHECKPOINT_PATH
-    orig_ckpt = spacenetra_model.ORIGINAL_CHECKPOINT_PATH
+    
+    # Verify registry contains both required checkpoints with accurate metadata
+    assert "initial" in spacenetra_model.CHECKPOINTS_CONFIG, "Missing 'initial' in CHECKPOINTS_CONFIG"
+    assert "fulltrain" in spacenetra_model.CHECKPOINTS_CONFIG, "Missing 'fulltrain' in CHECKPOINTS_CONFIG"
+    
+    init_cfg = spacenetra_model.CHECKPOINTS_CONFIG["initial"]
+    full_cfg = spacenetra_model.CHECKPOINTS_CONFIG["fulltrain"]
+    
+    print(f"Checking full-train checkpoint: {full_cfg['path']}")
+    assert os.path.exists(full_cfg["path"]), f"Full-train checkpoint missing at {full_cfg['path']}"
+    assert os.path.getsize(full_cfg["path"]) > 2_000_000, "Full-train checkpoint seems truncated"
 
-    print(f"Checking new full-train checkpoint exists: {new_ckpt}")
-    assert os.path.exists(new_ckpt), f"New checkpoint missing at {new_ckpt}"
-    assert os.path.getsize(new_ckpt) > 2_000_000, f"New checkpoint seems truncated: {os.path.getsize(new_ckpt)} bytes"
+    print(f"Checking initial checkpoint: {init_cfg['path']}")
+    assert os.path.exists(init_cfg["path"]), f"Initial checkpoint missing at {init_cfg['path']}"
+    assert os.path.getsize(init_cfg["path"]) > 2_000_000, "Initial checkpoint seems truncated"
 
-    print(f"Checking original checkpoint remains intact: {orig_ckpt}")
-    assert os.path.exists(orig_ckpt), f"Original checkpoint missing at {orig_ckpt}"
-    assert os.path.getsize(orig_ckpt) > 2_000_000, f"Original checkpoint truncated: {os.path.getsize(orig_ckpt)} bytes"
+    # 1. Load full-training checkpoint strictly
+    model_full, meta_full, err_full = spacenetra_model.load_model(full_cfg["path"], device="cpu")
+    assert err_full is None, f"Strict loading of full-train checkpoint failed: {err_full}"
+    assert model_full is not None, "Loaded full-train model is None"
+    assert meta_full["epoch"] == 9, f"Expected epoch 9, got {meta_full.get('epoch')}"
+    assert meta_full["training_pairs"] == 3500, f"Expected 3,500 train pairs, got {meta_full.get('training_pairs')}"
+    assert meta_full["validation_pairs"] == 500, f"Expected 500 val pairs, got {meta_full.get('validation_pairs')}"
+    assert round(meta_full["validation_metrics"]["f1"], 4) == 0.3910, f"Unexpected Val F1: {meta_full['validation_metrics']['f1']}"
+    assert round(meta_full["validation_metrics"]["iou"], 4) == 0.2430, f"Unexpected Val IoU: {meta_full['validation_metrics']['iou']}"
+    assert round(meta_full["heldout_test_metrics"]["f1"], 4) == 0.3475, f"Unexpected Test F1: {meta_full['heldout_test_metrics']['f1']}"
+    assert round(meta_full["heldout_test_metrics"]["iou"], 4) == 0.2103, f"Unexpected Test IoU: {meta_full['heldout_test_metrics']['iou']}"
+    print("  [PASS] Full-train checkpoint (Epoch 9) loaded strictly with strict=True!")
+    print(f"    - Training: {meta_full['training_pairs']} pairs | Validation: {meta_full['validation_pairs']} pairs")
+    print(f"    - Benchmark Val F1: {meta_full['validation_metrics']['f1']:.4f} | IoU: {meta_full['validation_metrics']['iou']:.4f}")
+    print(f"    - Held-Out Test F1: {meta_full['heldout_test_metrics']['f1']:.4f} | IoU: {meta_full['heldout_test_metrics']['iou']:.4f}")
 
-    # 1. Load new checkpoint strictly
-    model, metadata, err = spacenetra_model.load_model(new_ckpt, device="cpu")
-    assert err is None, f"Strict loading of new checkpoint failed: {err}"
-    assert model is not None, "Loaded model is None"
-    assert metadata["epoch"] == 9, f"Expected epoch 9, got {metadata.get('epoch')}"
-    assert metadata["training_pairs"] == 3500, f"Expected 3,500 train pairs, got {metadata.get('training_pairs')}"
-    assert metadata["validation_pairs"] == 500, f"Expected 500 val pairs, got {metadata.get('validation_pairs')}"
-    assert round(metadata["validation_metrics"]["f1"], 4) == 0.3910, f"Unexpected Val F1: {metadata['validation_metrics']['f1']}"
-    assert round(metadata["validation_metrics"]["iou"], 4) == 0.2430, f"Unexpected Val IoU: {metadata['validation_metrics']['iou']}"
-    assert round(metadata["heldout_test_metrics"]["f1"], 4) == 0.3475, f"Unexpected Test F1: {metadata['heldout_test_metrics']['f1']}"
-    assert round(metadata["heldout_test_metrics"]["iou"], 4) == 0.2103, f"Unexpected Test IoU: {metadata['heldout_test_metrics']['iou']}"
-    print("  [PASS] New checkpoint loaded strictly with strict=True!")
-    print(f"    - Epoch: {metadata['epoch']} (3,500 train pairs, 500 val pairs)")
-    print(f"    - Benchmark Val F1: {metadata['validation_metrics']['f1']:.4f} | IoU: {metadata['validation_metrics']['iou']:.4f}")
-    print(f"    - Held-out Test F1: {metadata['heldout_test_metrics']['f1']:.4f} | IoU: {metadata['heldout_test_metrics']['iou']:.4f}")
+    # 2. Load initial baseline checkpoint strictly
+    model_init, meta_init, err_init = spacenetra_model.load_model(init_cfg["path"], device="cpu")
+    assert err_init is None, f"Strict loading of initial checkpoint failed: {err_init}"
+    assert model_init is not None, "Loaded initial model is None"
+    assert meta_init["epoch"] == 2, f"Expected epoch 2, got {meta_init.get('epoch')}"
+    assert meta_init["training_pairs"] == 500, f"Expected 500 train pairs, got {meta_init.get('training_pairs')}"
+    assert meta_init["validation_pairs"] == 100, f"Expected 100 val pairs, got {meta_init.get('validation_pairs')}"
+    print("  [PASS] Initial checkpoint (Epoch 2) loaded strictly with strict=True!")
+    print(f"    - Training: {meta_init['training_pairs']} pairs | Validation: {meta_init['validation_pairs']} pairs")
+    print(f"    - Benchmark Val F1: {meta_init['validation_metrics']['f1']:.4f} | IoU: {meta_init['validation_metrics']['iou']:.4f}")
 
-    # 2. Verify original checkpoint also loads strictly
-    orig_model, orig_meta, orig_err = spacenetra_model.load_model(orig_ckpt, device="cpu")
-    assert orig_err is None, f"Strict loading of original checkpoint failed: {orig_err}"
-    assert orig_model is not None, "Original model is None"
-    print("  [PASS] Original checkpoint verified intact and loadable with strict=True!")
-
-    return model, metadata
+    return model_full, meta_full
 
 
 def test_preprocessing_compliance():
     print("\n------------------------------------------------------------------")
-    print("[TEST 3] Preserved Training Preprocessing Verification")
+    print("[TEST 2] Preserved Training Preprocessing Verification")
     print("------------------------------------------------------------------")
-    # Two test images of arbitrary different sizes to test resizing
     img1 = Image.new("RGB", (320, 240), color=(100, 150, 200))
     img2 = Image.new("RGB", (480, 360), color=(110, 160, 210))
 
@@ -84,13 +95,11 @@ def test_preprocessing_compliance():
     assert 0.0 <= min_val <= 1.0, f"Tensor min {min_val} outside [0, 1]"
     assert 0.0 <= max_val <= 1.0, f"Tensor max {max_val} outside [0, 1]"
 
-    # Confirm earlier RGB channels (0:3) match im1 and later RGB channels (3:6) match im2
+    # Confirm channel ordering: earlier RGB (0:3) and later RGB (3:6)
     t1_np = tensor_6ch[0, :3, :, :].numpy()
     t2_np = tensor_6ch[0, 3:, :, :].numpy()
-    expected_c0 = 100.0 / 255.0
-    expected_c3 = 110.0 / 255.0
-    assert abs(t1_np[0, 0, 0] - expected_c0) < 1e-3, "Channel 0 does not match earlier image"
-    assert abs(t2_np[0, 0, 0] - expected_c3) < 1e-3, "Channel 3 does not match later image"
+    assert abs(t1_np[0, 0, 0] - 100.0 / 255.0) < 1e-3, "Channel 0 does not match earlier image"
+    assert abs(t2_np[0, 0, 0] - 110.0 / 255.0) < 1e-3, "Channel 3 does not match later image"
 
     print("  [PASS] Preprocessing strictly adheres to training specification:")
     print(f"    - Shape: {tensor_6ch.shape} (BCHW format, 6 channels)")
@@ -103,7 +112,7 @@ def test_preprocessing_compliance():
 
 def test_inference_and_dimensions(model, tensor_6ch, im2_resized):
     print("\n------------------------------------------------------------------")
-    print("[TEST 4 & 5] Inference, Output Dimensions & Probability Range")
+    print("[TEST 3] Inference, Output Dimensions & Probability Range")
     print("------------------------------------------------------------------")
     pred = spacenetra_model.predict_change(model, tensor_6ch, im2_resized, threshold=0.50, device="cpu")
 
@@ -111,6 +120,7 @@ def test_inference_and_dimensions(model, tensor_6ch, im2_resized):
     assert pred["prob_map"].shape == (256, 256), f"Expected prob_map (256, 256), got {pred['prob_map'].shape}"
     assert pred["binary_mask"].shape == (256, 256), f"Expected binary_mask (256, 256), got {pred['binary_mask'].shape}"
     assert pred["overlay_img"].shape == (256, 256, 3), f"Expected overlay_img (256, 256, 3), got {pred['overlay_img'].shape}"
+    assert pred["prob_heatmap"].shape == (256, 256, 3), f"Expected prob_heatmap (256, 256, 3), got {pred['prob_heatmap'].shape}"
     assert pred["total_pixels"] == 256 * 256, f"Expected total pixels 65,536, got {pred['total_pixels']}"
 
     # Probabilities finite and within [0, 1]
@@ -121,65 +131,169 @@ def test_inference_and_dimensions(model, tensor_6ch, im2_resized):
     assert 0.0 <= p_min <= 1.0, f"prob_map min {p_min} outside [0, 1]"
     assert 0.0 <= p_max <= 1.0, f"prob_map max {p_max} outside [0, 1]"
 
-    # Binary mask values
+    # Binary mask values strictly in {0, 1}
     unique_vals = set(np.unique(pred["binary_mask"]))
     assert unique_vals.issubset({0, 1}), f"Non-binary values in binary_mask: {unique_vals}"
 
-    print("  [PASS] Inference output dimensions and probabilities verified:")
+    print("  [PASS] Inference output dimensions, probabilities, and heatmap verified:")
     print(f"    - Output mask dimensions: {pred['binary_mask'].shape}")
     print(f"    - Probabilities range: [{p_min:.5f}, {p_max:.5f}] (all finite, [0, 1])")
     print(f"    - Changed pixels at threshold 0.50: {pred['changed_pixels']} ({pred['change_ratio_pct']}%)")
 
 
-def test_threshold_responsiveness(model):
+def test_threshold_responsiveness_and_slider(model):
     print("\n------------------------------------------------------------------")
-    print("[TEST 6] Threshold Sensitivity & Binary Mask Responsiveness")
+    print("[TEST 4] Real Detection-Threshold Slider & Dynamic Re-Thresholding")
     print("------------------------------------------------------------------")
-    # Use real optical satellite tile pair where natural contrast produces varying probability distributions
     t1_path = "data/change_detection/source/csn_7dca6e98_2016.jpg"
     t2_path = "data/change_detection/source/csn_7dca6e98_current.jpg"
     assert os.path.exists(t1_path) and os.path.exists(t2_path), "Test satellite tiles missing"
 
     tensor_real, _, r2 = spacenetra_model.preprocess_pair(t1_path, t2_path, target_size=256)
 
-    thresholds = [0.20, 0.35, 0.50, 0.65, 0.80]
+    # Compute base inference
+    base_pred = spacenetra_model.predict_change(model, tensor_real, r2, threshold=0.50, device="cpu")
+    prob_map = base_pred["prob_map"]
+
+    slider_thresholds = [0.05, 0.20, 0.35, 0.50, 0.65, 0.80, 0.90]
     results = {}
     masks = {}
 
-    for th in thresholds:
-        pred_th = spacenetra_model.predict_change(model, tensor_real, r2, threshold=th, device="cpu")
-        results[th] = pred_th["changed_pixels"]
-        masks[th] = pred_th["binary_mask"]
-        assert pred_th["threshold"] == th, f"Reported threshold {pred_th['threshold']} != requested {th}"
+    for th in slider_thresholds:
+        # Test dynamic re-threshold helper directly on continuous probability map
+        re_pred = spacenetra_model.apply_threshold_to_prob_map(prob_map, r2, threshold=th)
+        results[th] = re_pred["changed_pixels"]
+        masks[th] = re_pred["binary_mask"]
+        assert re_pred["threshold"] == th, f"Reported threshold {re_pred['threshold']} != requested {th}"
+        
+        # Cross-verify with full predict_change at the same threshold
+        direct_pred = spacenetra_model.predict_change(model, tensor_real, r2, threshold=th, device="cpu")
+        assert re_pred["changed_pixels"] == direct_pred["changed_pixels"], f"Mismatch at threshold {th}"
+        assert np.array_equal(re_pred["binary_mask"], direct_pred["binary_mask"]), f"Mask mismatch at threshold {th}"
 
-        # Verify dynamic re-threshold helper produces identical result
-        re_pred = spacenetra_model.apply_threshold_to_prob_map(pred_th["prob_map"], r2, threshold=th)
-        assert re_pred["changed_pixels"] == pred_th["changed_pixels"], "apply_threshold_to_prob_map mismatch!"
-        assert np.array_equal(re_pred["binary_mask"], pred_th["binary_mask"]), "apply_threshold_to_prob_map mask mismatch!"
+    print("  Testing monotonic response across slider range [0.05 .. 0.90]:")
+    for th in slider_thresholds:
+        print(f"    - Sensitivity Threshold {th:.2f} -> Changed Pixels: {results[th]:,}")
 
-    print("  Testing monotonic response across decision thresholds:")
-    for th in thresholds:
-        print(f"    - Threshold {th:.2f} -> Changed Pixels: {results[th]:,}")
-
-    # As threshold increases, changed pixel count must be non-increasing (monotonic)
-    counts = [results[th] for th in thresholds]
+    # Monotonicity: as threshold increases, changed pixel count must be non-increasing
+    counts = [results[th] for th in slider_thresholds]
     assert all(counts[i] >= counts[i + 1] for i in range(len(counts) - 1)), \
         f"Threshold monotonicity violated: {counts}"
 
-    # Confirm that the mask actually changes across different thresholds
-    mask_diff = np.sum(masks[0.20] != masks[0.80])
-    assert mask_diff > 0, "Binary mask did not change between threshold 0.20 and 0.80!"
-    print(f"  [PASS] Binary mask successfully changes with threshold (differing pixels: {mask_diff:,})")
+    # Confirm mask differences between extremes
+    mask_diff = np.sum(masks[0.05] != masks[0.90])
+    assert mask_diff > 0, "Binary mask did not change between threshold 0.05 and 0.90!"
+    print(f"  [PASS] Detection-threshold slider dynamically refreshes mask (difference: {mask_diff:,} pixels)")
+
+
+def test_heatmap_generation():
+    print("\n------------------------------------------------------------------")
+    print("[TEST 5] Probability Heatmap Visualization Verification")
+    print("------------------------------------------------------------------")
+    # Synthetic continuous probability ramp from 0.0 to 1.0
+    synth_probs = np.linspace(0.0, 1.0, 256 * 256).reshape((256, 256)).astype(np.float32)
+    heatmap = spacenetra_model.generate_probability_heatmap(synth_probs)
+
+    assert heatmap.shape == (256, 256, 3), f"Expected (256, 256, 3), got {heatmap.shape}"
+    assert heatmap.dtype == np.uint8, f"Expected uint8, got {heatmap.dtype}"
+    assert heatmap.min() >= 0 and heatmap.max() <= 255, "Heatmap values outside [0, 255]"
+    # Verify non-trivial color variance across gradient
+    assert len(np.unique(heatmap)) > 50, "Heatmap lacks continuous color variation"
+    print("  [PASS] Continuous probability heatmap generation verified (shape: 256×256×3, RGB Turbo).")
+
+
+def test_optional_morphology_postprocessing():
+    print("\n------------------------------------------------------------------")
+    print("[TEST 6] Optional Morphology Post-Processing Verification")
+    print("------------------------------------------------------------------")
+    # Create test binary mask with isolated noise speck and a small hole in a building
+    test_mask = np.zeros((256, 256), dtype=np.uint8)
+    test_mask[50:100, 50:100] = 1   # 50x50 building block
+    test_mask[70:75, 70:75] = 0     # 5x5 internal hole
+    test_mask[180, 180] = 1         # 1x1 isolated noise speck
+
+    # 1. Opening: removes isolated noise specks
+    opened_mask = spacenetra_model.apply_optional_morphology(test_mask, operation="opening", kernel_size=3, iterations=1)
+    assert opened_mask.shape == (256, 256), "Opened mask dimension mismatch"
+    assert opened_mask[180, 180] == 0, "Opening failed to remove isolated noise speck"
+    assert opened_mask[60, 60] == 1, "Opening corrupted main building body"
+
+    # 2. Closing: bridges small internal gaps
+    closed_mask = spacenetra_model.apply_optional_morphology(test_mask, operation="closing", kernel_size=7, iterations=1)
+    assert closed_mask.shape == (256, 256), "Closed mask dimension mismatch"
+    assert closed_mask[72, 72] == 1, "Closing failed to bridge small internal hole"
+
+    # 3. Closing followed by Opening
+    comb_mask = spacenetra_model.apply_optional_morphology(test_mask, operation="closing_opening", kernel_size=5, iterations=1)
+    assert comb_mask.shape == (256, 256), "Combined mask dimension mismatch"
+
+    print("  [PASS] Optional morphology post-processing functions correctly and non-destructively.")
+
+
+def test_reference_mask_pair_evaluation():
+    print("\n------------------------------------------------------------------")
+    print("[TEST 7] Pair-Specific Reference Mask Evaluation Verification")
+    print("------------------------------------------------------------------")
+    # Synthetic ground truth: 100x100 block
+    ref_gt = np.zeros((256, 256), dtype=np.uint8)
+    ref_gt[50:150, 50:150] = 1 # 10,000 true positive change pixels
+
+    # Synthetic prediction: 80x80 block overlapping from (50, 50) to (130, 130) + 20x20 false positive at (200, 200)
+    pred_mask = np.zeros((256, 256), dtype=np.uint8)
+    pred_mask[50:130, 50:130] = 1 # TP = 6,400 px
+    pred_mask[200:220, 200:220] = 1 # FP = 400 px
+    # FN = 10,000 - 6,400 = 3,600 px
+
+    # Convert ground truth to in-memory PNG file
+    gt_pil = Image.fromarray(ref_gt * 255)
+    buf = io.BytesIO()
+    gt_pil.save(buf, format="PNG")
+    buf.seek(0)
+
+    eval_res = spacenetra_model.evaluate_against_reference_mask(pred_mask, buf)
+
+    expected_tp = 6400
+    expected_fp = 400
+    expected_fn = 3600
+    expected_tn = (256 * 256) - (expected_tp + expected_fp + expected_fn)
+    expected_prec = expected_tp / (expected_tp + expected_fp) # 6400 / 6800 = 0.941176
+    expected_rec = expected_tp / (expected_tp + expected_fn)   # 6400 / 10000 = 0.640000
+    expected_f1 = (2 * expected_prec * expected_rec) / (expected_prec + expected_rec)
+    expected_iou = expected_tp / (expected_tp + expected_fp + expected_fn) # 6400 / 10400 = 0.61538
+
+    assert eval_res["tp"] == expected_tp, f"TP mismatch: got {eval_res['tp']}, expected {expected_tp}"
+    assert eval_res["fp"] == expected_fp, f"FP mismatch: got {eval_res['fp']}, expected {expected_fp}"
+    assert eval_res["fn"] == expected_fn, f"FN mismatch: got {eval_res['fn']}, expected {expected_fn}"
+    assert eval_res["tn"] == expected_tn, f"TN mismatch: got {eval_res['tn']}, expected {expected_tn}"
+    assert abs(eval_res["precision"] - expected_prec) < 1e-4, f"Precision mismatch: {eval_res['precision']}"
+    assert abs(eval_res["recall"] - expected_rec) < 1e-4, f"Recall mismatch: {eval_res['recall']}"
+    assert abs(eval_res["f1"] - expected_f1) < 1e-4, f"F1 mismatch: {eval_res['f1']}"
+    assert abs(eval_res["iou"] - expected_iou) < 1e-4, f"IoU mismatch: {eval_res['iou']}"
+
+    # Verify confusion map
+    conf_map = eval_res["confusion_map"]
+    assert conf_map.shape == (256, 256, 3), "Confusion map shape mismatch"
+    # Check green TP color at (60, 60)
+    assert np.array_equal(conf_map[60, 60], [34, 197, 94]), "TP pixel color should be green"
+    # Check red FP color at (210, 210)
+    assert np.array_equal(conf_map[210, 210], [239, 68, 68]), "FP pixel color should be red"
+    # Check blue FN color at (140, 140)
+    assert np.array_equal(conf_map[140, 140], [59, 130, 246]), "FN pixel color should be blue"
+
+    print("  [PASS] Pair-specific reference mask evaluation verified:")
+    print(f"    - TP: {eval_res['tp']:,} | FP: {eval_res['fp']:,} | FN: {eval_res['fn']:,} | TN: {eval_res['tn']:,}")
+    print(f"    - Precision: {eval_res['precision']:.4f} | Recall: {eval_res['recall']:.4f}")
+    print(f"    - F1 Score: {eval_res['f1']:.4f} | IoU: {eval_res['iou']:.4f}")
+    print("    - Diagnostic confusion map (Green=TP, Red=FP, Blue=FN, Navy=TN) validated.")
 
 
 def test_traditional_detection_and_semantic_search():
     print("\n------------------------------------------------------------------")
-    print("[TEST 7] Preservation of Traditional Detection & Semantic Search")
+    print("[TEST 8] Preservation of Traditional Detection & Semantic Search")
     print("------------------------------------------------------------------")
     # 1. Traditional building detection
     print("  Verifying traditional multi-temporal building detector...")
     t1_path = "data/change_detection/source/csn_7dca6e98_2016.jpg"
-    t2_path = "data/change_detection/source/csn_7dca6e98_2020.jpg"
     t3_path = "data/change_detection/source/csn_7dca6e98_current.jpg"
 
     bldg_res = building_detector.detect_new_buildings(
@@ -224,12 +338,16 @@ def run_all_tests():
     model, metadata = test_checkpoint_strict_loading()
     tensor_6ch, im2_res = test_preprocessing_compliance()
     test_inference_and_dimensions(model, tensor_6ch, im2_res)
-    test_threshold_responsiveness(model)
+    test_threshold_responsiveness_and_slider(model)
+    test_heatmap_generation()
+    test_optional_morphology_postprocessing()
+    test_reference_mask_pair_evaluation()
     test_traditional_detection_and_semantic_search()
     print("\n==================================================================")
-    print(" ALL 7 VALIDATION REQUIREMENTS PASSED SUCCESSFULLY!               ")
+    print(" ALL 8 VALIDATION REQUIREMENTS PASSED SUCCESSFULLY!               ")
     print("==================================================================")
 
 
 if __name__ == "__main__":
     run_all_tests()
+
