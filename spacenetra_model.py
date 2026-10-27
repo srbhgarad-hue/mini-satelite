@@ -434,3 +434,122 @@ def evaluate_against_reference_mask(
         "ref_binary": ref_b,
         "confusion_map": confusion_map
     }
+
+
+DIAGNOSTIC_THRESHOLDS: List[float] = [0.10, 0.20, 0.30, 0.40, 0.50, 0.65]
+
+
+def compute_threshold_sensitivity_diagnostic(
+    prob_map: np.ndarray,
+    thresholds: Optional[List[float]] = None
+) -> List[Dict]:
+    """
+    Computes predicted changed-pixel counts, frame percentages, and binary masks
+    across the required threshold sensitivity values [0.10, 0.20, 0.30, 0.40, 0.50, 0.65].
+    Evaluates the existing continuous probability map without re-running model forward pass.
+    """
+    if thresholds is None:
+        thresholds = DIAGNOSTIC_THRESHOLDS
+
+    total_pixels = float(prob_map.size)
+    diagnostics = []
+    for th in thresholds:
+        b_mask = (prob_map >= th).astype(np.uint8)
+        changed_pixels = int(np.sum(b_mask))
+        change_pct = round((changed_pixels / max(1.0, total_pixels)) * 100.0, 2)
+        diagnostics.append({
+            "threshold": th,
+            "changed_pixels": changed_pixels,
+            "change_pct": change_pct,
+            "binary_mask": b_mask
+        })
+    return diagnostics
+
+
+def verify_input_consistency_and_alignment(
+    earlier_image: Union[str, Image.Image, np.ndarray],
+    later_image: Union[str, Image.Image, np.ndarray],
+    target_size: int = 256
+) -> Dict:
+    """
+    Verifies input consistency and evaluates sub-pixel geometric co-registration:
+    1. Checks native dimensions and framing compatibility.
+    2. Verifies color space and channel consistency.
+    3. Computes sub-pixel translation vector (dx, dy) via Hann-windowed FFT Phase Correlation.
+    4. Computes spatial Pearson correlation coefficient r and mean absolute intensity error.
+    5. Returns an empirical alignment assessment without claiming registration has succeeded unless checked.
+    """
+    if isinstance(earlier_image, str):
+        im1 = Image.open(earlier_image).convert("RGB")
+    elif isinstance(earlier_image, np.ndarray):
+        im1 = Image.fromarray(earlier_image).convert("RGB")
+    elif isinstance(earlier_image, Image.Image):
+        im1 = earlier_image.convert("RGB")
+    else:
+        im1 = Image.open(earlier_image).convert("RGB")
+
+    if isinstance(later_image, str):
+        im2 = Image.open(later_image).convert("RGB")
+    elif isinstance(later_image, np.ndarray):
+        im2 = Image.fromarray(later_image).convert("RGB")
+    elif isinstance(later_image, Image.Image):
+        im2 = later_image.convert("RGB")
+    else:
+        im2 = Image.open(later_image).convert("RGB")
+
+    orig_size_1 = im1.size
+    orig_size_2 = im2.size
+    compatible_framing = (orig_size_1 == orig_size_2)
+    aspect_ratio_1 = round(orig_size_1[0] / max(1, orig_size_1[1]), 3)
+    aspect_ratio_2 = round(orig_size_2[0] / max(1, orig_size_2[1]), 3)
+
+    # Grayscale float32 at target resolution for alignment analysis
+    g1 = np.asarray(im1.convert("L").resize((target_size, target_size), Image.Resampling.BILINEAR), dtype=np.float32)
+    g2 = np.asarray(im2.convert("L").resize((target_size, target_size), Image.Resampling.BILINEAR), dtype=np.float32)
+
+    # Hann-windowed phase correlation to estimate sub-pixel displacement
+    hann = cv2.createHanningWindow((target_size, target_size), cv2.CV_32F)
+    (dx, dy), peak_response = cv2.phaseCorrelate(g1, g2, hann)
+    displacement_magnitude = float(np.sqrt(dx**2 + dy**2))
+
+    # Pearson correlation and mean absolute intensity difference
+    std1, std2 = g1.std(), g2.std()
+    if std1 > 1e-4 and std2 > 1e-4:
+        pearson_r = float(np.corrcoef(g1.flatten(), g2.flatten())[0, 1])
+    else:
+        pearson_r = 0.0
+
+    mae_intensity = float(np.mean(np.abs(g1 - g2)))
+
+    # Categorize alignment based on empirical phase correlation
+    if displacement_magnitude <= 1.0 and peak_response >= 0.15:
+        align_status = "EXCELLENT_ALIGNMENT"
+        align_desc = f"Sub-pixel registration confirmed (offset magnitude: {displacement_magnitude:.2f} px, peak: {peak_response:.3f})."
+    elif displacement_magnitude <= 3.5:
+        align_status = "MODERATE_PARALLAX_SHIFT"
+        align_desc = (
+            f"Moderate geometric parallax shift detected (dx={dx:+.2f} px, dy={dy:+.2f} px, "
+            f"magnitude: {displacement_magnitude:.2f} px). Building edge contours may exhibit minor boundary parallax."
+        )
+    else:
+        align_status = "SIGNIFICANT_MISREGISTRATION"
+        align_desc = (
+            f"Notable spatial displacement detected (magnitude: {displacement_magnitude:.2f} px). "
+            f"High boundary false positives may occur if images are not strictly co-registered."
+        )
+
+    return {
+        "orig_size_earlier": orig_size_1,
+        "orig_size_later": orig_size_2,
+        "compatible_framing": compatible_framing,
+        "aspect_ratio_match": (aspect_ratio_1 == aspect_ratio_2),
+        "dx_pixels": round(float(dx), 2),
+        "dy_pixels": round(float(dy), 2),
+        "displacement_magnitude_px": round(displacement_magnitude, 2),
+        "phase_peak_response": round(float(peak_response), 4),
+        "pearson_correlation_r": round(pearson_r, 4),
+        "mae_intensity": round(mae_intensity, 2),
+        "alignment_status": align_status,
+        "alignment_description": align_desc
+    }
+
