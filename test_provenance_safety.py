@@ -139,18 +139,23 @@ def test_provenance_manifest_honesty():
     print("[PASS] Provenance manifest verified: Declares synthetic pixel status alongside authentic metadata.")
 
 def test_checkpoint_and_vector_db_intact():
-    """Verify that both the new full-train checkpoint and original checkpoint, plus vector database, are preserved."""
-    # 1. New Full-Train Checkpoint
+    """Verify that all three model checkpoints (mixed model, full-train, original baseline), plus vector database, are preserved."""
+    # 1. S2Looking + LEVIR-CD Mixed Model Checkpoint
+    mixed_ckpt = "models/spacenetra_s2looking_levir_20261030_031904_best.pth"
+    assert os.path.exists(mixed_ckpt), f"Mixed checkpoint missing: {mixed_ckpt}"
+    assert os.path.getsize(mixed_ckpt) > 2_000_000, f"Mixed checkpoint file truncated: {os.path.getsize(mixed_ckpt)} bytes"
+
+    # 2. Full-Train Checkpoint
     new_ckpt = "models/spacenetra_s2looking_unet_fulltrain_best.pth"
     assert os.path.exists(new_ckpt), f"New checkpoint missing: {new_ckpt}"
     assert os.path.getsize(new_ckpt) > 2_000_000, f"New checkpoint file truncated: {os.path.getsize(new_ckpt)} bytes"
 
-    # 2. Original Baseline Checkpoint
+    # 3. Original Baseline Checkpoint
     orig_ckpt = "models/spacenetra_s2looking_unet.pth"
     assert os.path.exists(orig_ckpt), f"Original checkpoint missing: {orig_ckpt}"
     assert os.path.getsize(orig_ckpt) > 2_000_000, f"Original checkpoint truncated: {os.path.getsize(orig_ckpt)} bytes"
 
-    # 3. Vector Database & Backup
+    # 4. Vector Database & Backup
     vdb_path = "vector_db/spatial.index"
     vmeta_path = "vector_db/metadata.npy"
     assert os.path.exists(vdb_path), f"FAISS index missing: {vdb_path}"
@@ -158,7 +163,7 @@ def test_checkpoint_and_vector_db_intact():
 
     vdb_bak = "vector_db_backup/spatial.index"
     assert os.path.exists(vdb_bak), "Vector DB backup missing"
-    print("[PASS] Both model checkpoints and vector database verified intact and untouched.")
+    print("[PASS] All three model checkpoints and vector database verified intact and untouched.")
 
 def run_all_provenance_tests():
     print("==================================================================")

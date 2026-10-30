@@ -701,32 +701,49 @@ if app_mode == "🛰️ Satellite Change Detection":
                 st.warning(f"Calibrated Sentinel-2 data unavailable or requires pre-staging: {e}")
 
         # Safe defaults for ML Model info in municipal reports
-        ckpt_cfg = spacenetra_model.CHECKPOINTS_CONFIG["fulltrain"]
-        thresh_val = 0.50
+        ckpt_cfg = spacenetra_model.CHECKPOINTS_CONFIG["mixed"]
+        thresh_val = spacenetra_model.DEFAULT_THRESHOLD
 
         # Model Loading via Separate Resource Cache (strict loading, separate cache per model path)
         @st.cache_resource
         def get_cached_unet(path: str):
             return spacenetra_model.load_model(path)
 
-        # ── TAB 5: EXPERIMENTAL ML CHANGE DETECTION (S2LOOKING U-NET) ──
+        # ── TAB 5: EXPERIMENTAL ML CHANGE DETECTION (BITEMPORAL U-NET) ──
         with tab_ml_unet:
             st.subheader("🧪 Deep-Learning Change Detection (Bitemporal U-Net)")
             st.caption("AI-powered binary change detection comparing multi-temporal satellite imagery.")
 
-            fulltrain_path = spacenetra_model.FULLTRAIN_CHECKPOINT_PATH
             orig_path = spacenetra_model.INITIAL_CHECKPOINT_PATH
-            fulltrain_exists = os.path.exists(fulltrain_path)
-            orig_exists = os.path.exists(orig_path)
+            fulltrain_path = spacenetra_model.FULLTRAIN_CHECKPOINT_PATH
+            mixed_path = spacenetra_model.MIXED_CHECKPOINT_PATH
 
-            title_fulltrain = "Full-training model (3,500 pairs, Epoch 9 best)"
-            title_orig = "Original baseline model (500 pairs, Epoch 2)"
+            orig_exists = os.path.exists(orig_path)
+            fulltrain_exists = os.path.exists(fulltrain_path)
+            mixed_exists = os.path.exists(mixed_path)
+
+            title_orig = "1. S2Looking baseline — original checkpoint"
+            title_fulltrain = "2. S2Looking full-training model"
+            title_mixed = "3. S2Looking + LEVIR-CD mixed model"
 
             available_options = []
-            if fulltrain_exists:
-                available_options.append(title_fulltrain)
             if orig_exists:
                 available_options.append(title_orig)
+            if fulltrain_exists:
+                available_options.append(title_fulltrain)
+            if mixed_exists:
+                available_options.append(title_mixed)
+
+            title_to_key = {
+                title_orig: "initial",
+                title_fulltrain: "fulltrain",
+                title_mixed: "mixed",
+                "S2Looking baseline — original checkpoint": "initial",
+                "S2Looking full-training model": "fulltrain",
+                "S2Looking + LEVIR-CD mixed model": "mixed"
+            }
+
+            default_opt_idx = available_options.index(title_mixed) if title_mixed in available_options else 0
 
             # 1. Clean Top Configuration Layout
             col_cfg1, col_cfg2 = st.columns([1, 1])
@@ -738,25 +755,43 @@ if app_mode == "🛰️ Satellite Change Detection":
                         "Side-by-Side Dual-Model Comparison"
                     ],
                     horizontal=True,
-                    help="Evaluate a single model or compare both checkpoints side-by-side on identical inputs."
+                    help="Evaluate a single model or compare checkpoints side-by-side on identical inputs."
                 )
 
                 if ml_eval_mode == "Single Checkpoint Evaluation":
                     selected_ckpt_title = st.selectbox(
                         "Model Checkpoint:",
                         available_options,
-                        index=0,
-                        help="Choose checkpoint to load. Full-training model is default."
+                        index=default_opt_idx,
+                        help="Choose checkpoint to load. S2Looking + LEVIR-CD mixed model is the default experimental building-change model."
                     )
-                    is_fulltrain = (selected_ckpt_title == title_fulltrain)
-                    selected_ckpt_key = "fulltrain" if is_fulltrain else "initial"
+                    selected_ckpt_key = title_to_key.get(selected_ckpt_title, "mixed")
                     ckpt_cfg = spacenetra_model.CHECKPOINTS_CONFIG[selected_ckpt_key]
                     selected_ckpt_path = ckpt_cfg["path"]
                     ml_model, ml_meta, ml_err = get_cached_unet(selected_ckpt_path)
                 else:
-                    is_fulltrain = True
-                    ckpt_cfg = spacenetra_model.CHECKPOINTS_CONFIG["fulltrain"]
-                    selected_ckpt_path = fulltrain_path
+                    col_m1, col_m2 = st.columns(2)
+                    with col_m1:
+                        comp_title_a = st.selectbox(
+                            "Model A (Primary / Mixed):",
+                            available_options,
+                            index=default_opt_idx,
+                            key="ml_comp_sel_a"
+                        )
+                    with col_m2:
+                        idx_b = available_options.index(title_fulltrain) if title_fulltrain in available_options else 0
+                        comp_title_b = st.selectbox(
+                            "Model B (Comparative):",
+                            available_options,
+                            index=idx_b,
+                            key="ml_comp_sel_b"
+                        )
+                    key_a = title_to_key.get(comp_title_a, "mixed")
+                    key_b = title_to_key.get(comp_title_b, "fulltrain")
+                    cfg_a = spacenetra_model.CHECKPOINTS_CONFIG[key_a]
+                    cfg_b = spacenetra_model.CHECKPOINTS_CONFIG[key_b]
+                    ckpt_cfg = cfg_a
+                    selected_ckpt_path = cfg_a["path"]
                     ml_model, ml_meta, ml_err = None, None, None
 
             with col_cfg2:
@@ -773,12 +808,51 @@ if app_mode == "🛰️ Satellite Change Detection":
                     "Detection Sensitivity (Decision Threshold):",
                     min_value=0.05,
                     max_value=0.90,
-                    value=0.50,
+                    value=spacenetra_model.DEFAULT_THRESHOLD,
                     step=0.05,
                     help="Threshold applied to output sigmoid probabilities to produce the binary change decision mask. 0.50 is the standard decision threshold."
                 )
 
-            # 2. Input Image Resolution
+            # Benchmark Evaluation Card (Dataset-Level Benchmarks)
+            st.markdown("##### 📊 Dataset-Level Benchmark Evaluation Results")
+            st.caption("Standardized test set performance evaluated on held-out benchmark datasets at decision threshold 0.50.")
+
+            bm_col1, bm_col2 = st.columns(2)
+            with bm_col1:
+                st.markdown("""
+                <div style="background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 12px 16px;">
+                    <div style="font-weight: 700; color: #38bdf8; font-size: 0.92rem; margin-bottom: 6px;">
+                        🛰️ S2Looking Test Benchmark
+                    </div>
+                    <div style="font-size: 0.83rem; color: #cbd5e1; line-height: 1.6;">
+                        • <strong>Precision:</strong> 33.04%<br>
+                        • <strong>Recall:</strong> 30.50%<br>
+                        • <strong>F1 Score:</strong> 31.72%<br>
+                        • <strong>IoU:</strong> 18.85%<br>
+                        <span style="color: #94a3b8; font-size: 0.76rem;">Threshold used: 0.50</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with bm_col2:
+                st.markdown("""
+                <div style="background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 12px 16px;">
+                    <div style="font-weight: 700; color: #10b981; font-size: 0.92rem; margin-bottom: 6px;">
+                        🏢 LEVIR-CD Test Benchmark
+                    </div>
+                    <div style="font-size: 0.83rem; color: #cbd5e1; line-height: 1.6;">
+                        • <strong>Precision:</strong> 68.16%<br>
+                        • <strong>Recall:</strong> 63.49%<br>
+                        • <strong>F1 Score:</strong> 65.75%<br>
+                        • <strong>IoU:</strong> 48.97%<br>
+                        <span style="color: #94a3b8; font-size: 0.76rem;">Threshold used: 0.50</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            st.info("ℹ️ **Provenance & Evaluation Scope Notice:** These are separate benchmark results, not Maharashtra-specific accuracy.")
+
+            # 2. Input Image Resolution & Provenance Determination
             input_img1 = None
             input_img2 = None
             is_custom_upload = ("Upload Custom Pair" in ml_source_mode)
@@ -787,7 +861,33 @@ if app_mode == "🛰️ Satellite Change Detection":
                 input_img1 = timeline["p1_path"]
                 input_img2 = timeline["p3_path"]
                 current_input_sig = f"active_{st.session_state.get('active_area_name')}_{timeline.get('dates', {}).get('epoch_1')}_{timeline.get('dates', {}).get('epoch_3')}"
+                if timeline.get("is_real"):
+                    st.markdown("""
+                    <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 6px; padding: 8px 14px; margin: 8px 0 12px 0;">
+                        <span style="color: #10b981; font-weight: 700; font-size: 0.84rem;">🟢 GENUINE SATELLITE IMAGERY</span>
+                        <span style="color: #94a3b8; font-size: 0.78rem; margin-left: 8px;">Verified optical satellite photography (EPSG:4326 georeferenced).</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown("""
+                    <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 6px; padding: 8px 14px; margin: 8px 0 12px 0;">
+                        <span style="color: #f59e0b; font-weight: 700; font-size: 0.84rem;">🟡 SYNTHETIC TEST IMAGERY</span>
+                        <span style="color: #94a3b8; font-size: 0.78rem; margin-left: 8px;">Procedural simulation fallback fixture (not real observation).</span>
+                    </div>
+                    """, unsafe_allow_html=True)
             else:
+                st.markdown("""
+                <div style="background: rgba(148, 163, 184, 0.08); border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 6px; padding: 10px 14px; margin: 8px 0 12px 0;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="color: #cbd5e1; font-weight: 700; font-size: 0.86rem;">⚪ UNKNOWN-SOURCE / USER-UPLOADED IMAGERY</span>
+                        <span style="background: #475569; color: #f8fafc; font-weight: 700; font-size: 0.68rem; padding: 2px 8px; border-radius: 4px;">UNREFERENCED UPLOAD</span>
+                    </div>
+                    <div style="font-size: 0.78rem; color: #94a3b8; margin-top: 4px;">
+                        ⚠️ <strong>Provenance & Spatial Reference Notice:</strong> Uploaded imagery lacks embedded geospatial coordinate reference systems (CRS) and ground sampling distance (GSD). Coordinates and physical ground area (m² or hectares) are not invented. Detected differences represent pixel-level binary probability masks (unconfirmed change), not confirmed structural construction or demolition.
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
                 u_col1, u_col2 = st.columns(2)
                 with u_col1:
                     f1 = st.file_uploader("Earlier Image (T1)", type=["png", "jpg", "jpeg"], key="ml_clean_upl_1")
@@ -855,17 +955,17 @@ if app_mode == "🛰️ Satellite Change Detection":
                     st.markdown("##### 🖼️ Visual Prediction Pipeline")
                     col_v1, col_v2, col_v3, col_v4, col_v5 = st.columns(5)
                     with col_v1:
-                        st.image(im1_p, caption="Earlier (T1, 256×256)", width="stretch")
+                        st.image(im1_p, caption="Earlier Image (T1, 256×256)", width="stretch")
                     with col_v2:
-                        st.image(im2_p, caption="Later (T2, 256×256)", width="stretch")
+                        st.image(im2_p, caption="Later Image (T2, 256×256)", width="stretch")
                     with col_v3:
-                        st.image(pred["prob_heatmap"], caption="Probability Heatmap", width="stretch")
+                        st.image(pred["prob_heatmap"], caption="Probability Map (Raw Sigmoid)", width="stretch")
                     with col_v4:
-                        st.image(pred["binary_mask"] * 255, caption=f"Binary Mask (Th ≥ {thresh_val:.2f})", width="stretch")
+                        st.image(pred["binary_mask"] * 255, caption=f"Binary Change Mask (Th ≥ {thresh_val:.2f})", width="stretch")
                     with col_v5:
-                        st.image(pred["overlay_img"], caption="Coral Red Overlay", width="stretch")
+                        st.image(pred["overlay_img"], caption="Change Overlay", width="stretch")
 
-                    st.caption("Coral Red = Detected Change (Probability ≥ Threshold) | Turbo Gradient = Continuous Probability (0.0 to 1.0) | Natural Image = Unchanged Ground")
+                    st.caption("Coral Red = Detected Change (Probability ≥ Threshold) | Turbo Gradient = Continuous Probability (0.0 to 1.0) | Natural Image = Unchanged Ground. Raw predictions are preserved without automatic morphological expansion or dilation.")
 
                     # Threshold Sensitivity Diagnostic
                     st.markdown("---")
@@ -906,112 +1006,115 @@ if app_mode == "🛰️ Satellite Change Detection":
             # BRANCH B: DUAL-MODEL COMPARISON
             # =================================================================
             else:
-                if fulltrain_exists and orig_exists:
-                    model_full, meta_full, _ = get_cached_unet(fulltrain_path)
-                    model_orig, meta_orig, _ = get_cached_unet(orig_path)
+                model_a, meta_a, _ = get_cached_unet(cfg_a["path"])
+                model_b, meta_b, _ = get_cached_unet(cfg_b["path"])
 
-                    if run_ml_btn and input_img1 is not None and input_img2 is not None:
-                        with st.spinner("Executing comparative inference for both checkpoints..."):
-                            tensor_6ch, im1_prep, im2_prep = spacenetra_model.preprocess_pair(input_img1, input_img2, target_size=256)
-                            t_in_full = tensor_6ch.to(meta_full["device"])
-                            t_in_orig = tensor_6ch.to(meta_orig["device"])
+                if run_ml_btn and input_img1 is not None and input_img2 is not None:
+                    with st.spinner(f"Executing comparative inference for {cfg_a['short_label']} and {cfg_b['short_label']}..."):
+                        tensor_6ch, im1_prep, im2_prep = spacenetra_model.preprocess_pair(input_img1, input_img2, target_size=256)
+                        t_in_a = tensor_6ch.to(meta_a["device"])
+                        t_in_b = tensor_6ch.to(meta_b["device"])
 
-                            with torch.no_grad():
-                                logits_full = model_full(t_in_full)
-                                probs_full = torch.sigmoid(logits_full)
-                                logits_orig = model_orig(t_in_orig)
-                                probs_orig = torch.sigmoid(logits_orig)
+                        with torch.no_grad():
+                            logits_a = model_a(t_in_a)
+                            probs_a = torch.sigmoid(logits_a)
+                            logits_b = model_b(t_in_b)
+                            probs_b = torch.sigmoid(logits_b)
 
-                            prob_full_arr = probs_full.squeeze().cpu().numpy().astype(np.float32)
-                            prob_orig_arr = probs_orig.squeeze().cpu().numpy().astype(np.float32)
+                        prob_a_arr = probs_a.squeeze().cpu().numpy().astype(np.float32)
+                        prob_b_arr = probs_b.squeeze().cpu().numpy().astype(np.float32)
 
-                            st.session_state["ml_dual_full_prob"] = prob_full_arr
-                            st.session_state["ml_dual_orig_prob"] = prob_orig_arr
-                            st.session_state["ml_dual_im1_prep"] = im1_prep
-                            st.session_state["ml_dual_im2_prep"] = im2_prep
-                            st.session_state["ml_dual_input_sig"] = current_input_sig
+                        st.session_state["ml_dual_a_prob"] = prob_a_arr
+                        st.session_state["ml_dual_b_prob"] = prob_b_arr
+                        st.session_state["ml_dual_im1_prep"] = im1_prep
+                        st.session_state["ml_dual_im2_prep"] = im2_prep
+                        st.session_state["ml_dual_input_sig"] = current_input_sig
+                        st.session_state["ml_dual_key_a"] = key_a
+                        st.session_state["ml_dual_key_b"] = key_b
 
-                    has_valid_dual = (
-                        "ml_dual_full_prob" in st.session_state and
-                        "ml_dual_orig_prob" in st.session_state and
-                        st.session_state.get("ml_dual_input_sig") == current_input_sig
+                has_valid_dual = (
+                    "ml_dual_a_prob" in st.session_state and
+                    "ml_dual_b_prob" in st.session_state and
+                    st.session_state.get("ml_dual_input_sig") == current_input_sig and
+                    st.session_state.get("ml_dual_key_a") == key_a and
+                    st.session_state.get("ml_dual_key_b") == key_b
+                )
+
+                if has_valid_dual:
+                    prob_a_arr = st.session_state["ml_dual_a_prob"]
+                    prob_b_arr = st.session_state["ml_dual_b_prob"]
+                    im1_p = st.session_state["ml_dual_im1_prep"]
+                    im2_p = st.session_state["ml_dual_im2_prep"]
+
+                    pred_a = spacenetra_model.apply_threshold_to_prob_map(prob_a_arr, im2_p, threshold=thresh_val)
+                    pred_b = spacenetra_model.apply_threshold_to_prob_map(prob_b_arr, im2_p, threshold=thresh_val)
+
+                    st.markdown("---")
+                    st.markdown(f"#### ⚖️ Side-by-Side Model Comparison (Threshold {thresh_val:.2f})")
+
+                    dm1, dm2, dm3, dm4 = st.columns(4)
+                    dm1.metric(
+                        f"Model A: {cfg_a['short_label']}",
+                        f"{pred_a['changed_pixels']:,} px",
+                        delta=f"{pred_a['change_ratio_pct']}% of frame"
+                    )
+                    dm2.metric(
+                        f"Model B: {cfg_b['short_label']}",
+                        f"{pred_b['changed_pixels']:,} px",
+                        delta=f"{pred_b['change_ratio_pct']}% of frame"
+                    )
+                    ratio_str = f"{pred_a['changed_pixels'] / max(1, pred_b['changed_pixels']):.1f}×" if pred_b['changed_pixels'] > 0 else "N/A"
+                    dm3.metric("Pixel Ratio (Model A / B)", ratio_str)
+                    dm4.metric("Applied Threshold", f"{thresh_val:.2f}")
+
+                    # Side-by-Side Pipelines
+                    st.markdown("##### 🖼️ Visual Prediction Pipelines")
+                    st.write(f"**1. Model A ({cfg_a['title']}):**")
+                    va1, va2, va3, va4 = st.columns(4)
+                    with va1:
+                        st.image(im2_p, caption="Later Image (T2)", width="stretch")
+                    with va2:
+                        st.image(pred_a["prob_heatmap"], caption="Probability Heatmap", width="stretch")
+                    with va3:
+                        st.image(pred_a["binary_mask"] * 255, caption=f"Binary Mask (Th ≥ {thresh_val:.2f})", width="stretch")
+                    with va4:
+                        st.image(pred_a["overlay_img"], caption=f"Overlay ({pred_a['changed_pixels']:,} px)", width="stretch")
+
+                    st.write(f"**2. Model B ({cfg_b['title']}):**")
+                    vb1, vb2, vb3, vb4 = st.columns(4)
+                    with vb1:
+                        st.image(im2_p, caption="Later Image (T2)", width="stretch")
+                    with vb2:
+                        st.image(pred_b["prob_heatmap"], caption="Probability Heatmap", width="stretch")
+                    with vb3:
+                        st.image(pred_b["binary_mask"] * 255, caption=f"Binary Mask (Th ≥ {thresh_val:.2f})", width="stretch")
+                    with vb4:
+                        st.image(pred_b["overlay_img"], caption=f"Overlay ({pred_b['changed_pixels']:,} px)", width="stretch")
+
+                    # Dual Threshold Sensitivity Table
+                    st.markdown("---")
+                    st.markdown("##### 📊 Comparative Threshold Sensitivity Table")
+                    sens_a_list = spacenetra_model.compute_threshold_sensitivity_diagnostic(
+                        prob_a_arr, thresholds=[0.10, 0.20, 0.30, 0.40, 0.50, 0.65]
+                    )
+                    sens_b_list = spacenetra_model.compute_threshold_sensitivity_diagnostic(
+                        prob_b_arr, thresholds=[0.10, 0.20, 0.30, 0.40, 0.50, 0.65]
                     )
 
-                    if has_valid_dual:
-                        prob_full_arr = st.session_state["ml_dual_full_prob"]
-                        prob_orig_arr = st.session_state["ml_dual_orig_prob"]
-                        im1_p = st.session_state["ml_dual_im1_prep"]
-                        im2_p = st.session_state["ml_dual_im2_prep"]
-
-                        pred_full = spacenetra_model.apply_threshold_to_prob_map(prob_full_arr, im2_p, threshold=thresh_val)
-                        pred_orig = spacenetra_model.apply_threshold_to_prob_map(prob_orig_arr, im2_p, threshold=thresh_val)
-
-                        st.markdown("---")
-                        st.markdown(f"#### ⚖️ Side-by-Side Model Comparison (Threshold {thresh_val:.2f})")
-
-                        dm1, dm2, dm3, dm4 = st.columns(4)
-                        dm1.metric(
-                            "Original Model (Epoch 2)",
-                            f"{pred_orig['changed_pixels']:,} px",
-                            delta=f"{pred_orig['change_ratio_pct']}% of frame"
-                        )
-                        dm2.metric(
-                            "Full-Train Model (Epoch 9)",
-                            f"{pred_full['changed_pixels']:,} px",
-                            delta=f"{pred_full['change_ratio_pct']}% of frame"
-                        )
-                        ratio_str = f"{pred_orig['changed_pixels'] / max(1, pred_full['changed_pixels']):.1f}×" if pred_full['changed_pixels'] > 0 else "N/A"
-                        dm3.metric("Pixel Ratio (Orig / Full)", ratio_str)
-                        dm4.metric("Applied Threshold", f"{thresh_val:.2f}")
-
-                        # Side-by-Side Pipelines
-                        st.markdown("##### 🖼️ Visual Prediction Pipelines")
-                        st.write("**1. Original Model (Epoch 2 — 500 Pairs):**")
-                        vo1, vo2, vo3, vo4 = st.columns(4)
-                        with vo1:
-                            st.image(im2_p, caption="Later Optical Image (T2)", width="stretch")
-                        with vo2:
-                            st.image(pred_orig["prob_heatmap"], caption="Probability Heatmap", width="stretch")
-                        with vo3:
-                            st.image(pred_orig["binary_mask"] * 255, caption=f"Binary Mask (Th ≥ {thresh_val:.2f})", width="stretch")
-                        with vo4:
-                            st.image(pred_orig["overlay_img"], caption=f"Overlay ({pred_orig['changed_pixels']:,} px)", width="stretch")
-
-                        st.write("**2. Full-Training Model (Epoch 9 — 3,500 Pairs):**")
-                        vf1, vf2, vf3, vf4 = st.columns(4)
-                        with vf1:
-                            st.image(im2_p, caption="Later Optical Image (T2)", width="stretch")
-                        with vf2:
-                            st.image(pred_full["prob_heatmap"], caption="Probability Heatmap", width="stretch")
-                        with vf3:
-                            st.image(pred_full["binary_mask"] * 255, caption=f"Binary Mask (Th ≥ {thresh_val:.2f})", width="stretch")
-                        with vf4:
-                            st.image(pred_full["overlay_img"], caption=f"Overlay ({pred_full['changed_pixels']:,} px)", width="stretch")
-
-                        # Dual Threshold Sensitivity Table
-                        st.markdown("---")
-                        st.markdown("##### 📊 Comparative Threshold Sensitivity Table")
-                        sens_orig_list = spacenetra_model.compute_threshold_sensitivity_diagnostic(
-                            prob_orig_arr, thresholds=[0.10, 0.20, 0.30, 0.40, 0.50, 0.65]
-                        )
-                        sens_full_list = spacenetra_model.compute_threshold_sensitivity_diagnostic(
-                            prob_full_arr, thresholds=[0.10, 0.20, 0.30, 0.40, 0.50, 0.65]
-                        )
-
-                        dual_table_rows = []
-                        for so, sf in zip(sens_orig_list, sens_full_list):
-                            diff_px = so["changed_pixels"] - sf["changed_pixels"]
-                            rat = f"{so['changed_pixels'] / max(1, sf['changed_pixels']):.1f}×" if sf['changed_pixels'] > 0 else "N/A"
-                            dual_table_rows.append({
-                                "Threshold": f"{so['threshold']:.2f}",
-                                "Original Model (Epoch 2) Pixels": f"{so['changed_pixels']:,} px",
-                                "Original % Frame": f"{so['change_pct']:.2f}%",
-                                "Full-Train (Epoch 9) Pixels": f"{sf['changed_pixels']:,} px",
-                                "Full-Train % Frame": f"{sf['change_pct']:.2f}%",
-                                "Difference": f"{diff_px:+,} px",
-                                "Ratio": rat
-                            })
-                        st.dataframe(pd.DataFrame(dual_table_rows), width="stretch", hide_index=True)
+                    dual_table_rows = []
+                    for sa, sb in zip(sens_a_list, sens_b_list):
+                        diff_px = sa["changed_pixels"] - sb["changed_pixels"]
+                        rat = f"{sa['changed_pixels'] / max(1, sb['changed_pixels']):.1f}×" if sb['changed_pixels'] > 0 else "N/A"
+                        dual_table_rows.append({
+                            "Threshold": f"{sa['threshold']:.2f}",
+                            f"Model A ({cfg_a['id']}) Pixels": f"{sa['changed_pixels']:,} px",
+                            f"Model A % Frame": f"{sa['change_pct']:.2f}%",
+                            f"Model B ({cfg_b['id']}) Pixels": f"{sb['changed_pixels']:,} px",
+                            f"Model B % Frame": f"{sb['change_pct']:.2f}%",
+                            "Difference": f"{diff_px:+,} px",
+                            "Ratio": rat
+                        })
+                    st.dataframe(pd.DataFrame(dual_table_rows), width="stretch", hide_index=True)
 
             # =================================================================
             # 4. TECHNICAL DIAGNOSTICS & ADVANCED SETTINGS (Clean Expander Tray)
@@ -1059,22 +1162,32 @@ if app_mode == "🛰️ Satellite Change Detection":
         with tab_report:
             st.subheader("Official Municipal Intelligence Report")
             # Dynamic ML provenance parameters
-            ml_ckpt_label = ckpt_cfg.get("label", "Bitemporal U-Net")
+            ml_ckpt_label = ckpt_cfg.get("title", ckpt_cfg.get("short_label", "Bitemporal U-Net"))
             ml_epoch = ckpt_cfg.get("epoch", "N/A")
-            ml_train_pairs = ckpt_cfg.get("training_pairs", 3500)
-            ml_val_pairs = ckpt_cfg.get("val_pairs", 500)
-            ml_val_metrics = ckpt_cfg.get("val_metrics", {})
-            ml_val_str = f"F1: {ml_val_metrics.get('f1', 0.0)*100:.2f}% / IoU: {ml_val_metrics.get('iou', 0.0)*100:.2f}% ({ml_val_pairs} samples)"
-            ml_test_metrics = ckpt_cfg.get("test_metrics")
-            ml_test_str = (
-                f"F1: {ml_test_metrics.get('f1', 0.0)*100:.2f}% / IoU: {ml_test_metrics.get('iou', 0.0)*100:.2f}% ({ckpt_cfg.get('test_pairs', 1000)} samples, Th=0.50)"
-                if ml_test_metrics else "Not evaluated on held-out test set"
-            )
-            ml_test_th20_metrics = ckpt_cfg.get("metrics_test_th20")
-            ml_test_th20_str = (
-                f"F1: {ml_test_th20_metrics.get('f1', 0.0)*100:.2f}% / IoU: {ml_test_th20_metrics.get('iou', 0.0)*100:.2f}% (1,000 samples, Th=0.20)"
-                if ml_test_th20_metrics else "Not evaluated"
-            )
+            train_pairs_val = ckpt_cfg.get("training_pairs", 3500)
+            if isinstance(train_pairs_val, dict):
+                ml_train_str = f"S2Looking ({train_pairs_val.get('s2looking', 3500):,} pairs) + LEVIR-CD ({train_pairs_val.get('levir_cd_patches', 7120):,} patches)"
+            else:
+                ml_train_str = f"S2Looking ({train_pairs_val:,} training pairs)"
+
+            benchmarks = ckpt_cfg.get("benchmark_test_metrics")
+            if benchmarks:
+                s2_b = benchmarks.get("s2looking", {})
+                lev_b = benchmarks.get("levir_cd", {})
+                ml_bench_str = (
+                    f"S2Looking Test Benchmark  : Precision: {s2_b.get('precision', 0)*100:.2f}% | Recall: {s2_b.get('recall', 0)*100:.2f}% | F1: {s2_b.get('f1', 0)*100:.2f}% | IoU: {s2_b.get('iou', 0)*100:.2f}%\n"
+                    f"- LEVIR-CD Test Benchmark   : Precision: {lev_b.get('precision', 0)*100:.2f}% | Recall: {lev_b.get('recall', 0)*100:.2f}% | F1: {lev_b.get('f1', 0)*100:.2f}% | IoU: {lev_b.get('iou', 0)*100:.2f}% (Threshold: {benchmarks.get('threshold', 0.50):.2f})\n"
+                    f"- Benchmark Scope Notice    : {benchmarks.get('disclaimer', 'Separate benchmark results, not Maharashtra-specific accuracy.')}"
+                )
+            else:
+                ml_val_metrics = ckpt_cfg.get("metrics_val", {})
+                ml_val_str = f"F1: {ml_val_metrics.get('f1', 0.0)*100:.2f}% / IoU: {ml_val_metrics.get('iou', 0.0)*100:.2f}%" if ml_val_metrics else "N/A"
+                ml_test_metrics = ckpt_cfg.get("metrics_test")
+                ml_test_str = (
+                    f"F1: {ml_test_metrics.get('f1', 0.0)*100:.2f}% / IoU: {ml_test_metrics.get('iou', 0.0)*100:.2f}% (Threshold: 0.50)"
+                    if ml_test_metrics else "Not evaluated on held-out test set"
+                )
+                ml_bench_str = f"Benchmark Val F1 / IoU     : {ml_val_str}\n- Held-Out Test (Th=0.50)   : {ml_test_str}"
 
             rep_text = f"""================================================================================
 SPACE NETRA — MUNICIPAL BUILDING CHANGE INTELLIGENCE AUDIT
@@ -1102,14 +1215,12 @@ BUILDING DETECTION METRICS:
 - Minimum Area Floor Filter  : {min_bldg_area} m² (Aspect-Ratio Constrained: 0.2 - 5.0)
 - Operational Verdict        : {'ACTION: Significant New Building Construction' if det_res['building_count'] > 0 else 'STABLE: No Structural Alteration Detected'}
 --------------------------------------------------------------------------------
-EXPERIMENTAL ML MODEL PROVENANCE (S2LOOKING U-NET):
+EXPERIMENTAL ML MODEL PROVENANCE (BITEMPORAL U-NET):
 - Active Checkpoint          : {ml_ckpt_label} (Epoch {ml_epoch})
 - Model Architecture        : 6-Channel Bitemporal U-Net (256x256 resolution)
-- Training Dataset          : S2Looking Dataset ({ml_train_pairs:,} training pairs)
-- Benchmark Val F1 / IoU    : {ml_val_str}
-- Held-Out Test (Th=0.50)   : {ml_test_str}
-- Held-Out Test (Th=0.20)   : {ml_test_th20_str}
-- Detection Sensitivity     : Threshold ≥ {thresh_val:.2f} (Default 0.20 selected on validation data)
+- Training Dataset          : {ml_train_str}
+- {ml_bench_str}
+- Detection Sensitivity     : Threshold ≥ {thresh_val:.2f} (Standard decision boundary)
 - Operational Caveat        : Dataset-level benchmarks only. Exploratory binary change probability mask, not verified construction/demolition. Experimental research prototype, not production-ready.
 ================================================================================"""
             st.code(rep_text, language="text")

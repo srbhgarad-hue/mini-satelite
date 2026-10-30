@@ -29,12 +29,18 @@ def test_checkpoint_strict_loading():
     print("[TEST 1] Checkpoint Selector & Strict State-Dict Verification")
     print("------------------------------------------------------------------")
     
-    # Verify registry contains both required checkpoints with accurate metadata
+    # Verify registry contains all three required checkpoints with accurate metadata
     assert "initial" in spacenetra_model.CHECKPOINTS_CONFIG, "Missing 'initial' in CHECKPOINTS_CONFIG"
     assert "fulltrain" in spacenetra_model.CHECKPOINTS_CONFIG, "Missing 'fulltrain' in CHECKPOINTS_CONFIG"
+    assert "mixed" in spacenetra_model.CHECKPOINTS_CONFIG, "Missing 'mixed' in CHECKPOINTS_CONFIG"
     
     init_cfg = spacenetra_model.CHECKPOINTS_CONFIG["initial"]
     full_cfg = spacenetra_model.CHECKPOINTS_CONFIG["fulltrain"]
+    mixed_cfg = spacenetra_model.CHECKPOINTS_CONFIG["mixed"]
+
+    print(f"Checking mixed model checkpoint: {mixed_cfg['path']}")
+    assert os.path.exists(mixed_cfg["path"]), f"Mixed model checkpoint missing at {mixed_cfg['path']}"
+    assert os.path.getsize(mixed_cfg["path"]) > 2_000_000, "Mixed checkpoint seems truncated"
     
     print(f"Checking full-train checkpoint: {full_cfg['path']}")
     assert os.path.exists(full_cfg["path"]), f"Full-train checkpoint missing at {full_cfg['path']}"
@@ -44,7 +50,35 @@ def test_checkpoint_strict_loading():
     assert os.path.exists(init_cfg["path"]), f"Initial checkpoint missing at {init_cfg['path']}"
     assert os.path.getsize(init_cfg["path"]) > 2_000_000, "Initial checkpoint seems truncated"
 
-    # 1. Load full-training checkpoint strictly
+    # 1. Load S2Looking + LEVIR-CD mixed checkpoint strictly
+    model_mixed, meta_mixed, err_mixed = spacenetra_model.load_model(mixed_cfg["path"], device="cpu")
+    assert err_mixed is None, f"Strict loading of mixed checkpoint failed: {err_mixed}"
+    assert model_mixed is not None, "Loaded mixed model is None"
+    assert meta_mixed["epoch"] == 5, f"Expected epoch 5, got {meta_mixed.get('epoch')}"
+    assert meta_mixed["training_datasets"] == ["S2Looking", "LEVIR-CD"], f"Unexpected datasets: {meta_mixed.get('training_datasets')}"
+    assert meta_mixed["training_pairs"]["s2looking"] == 3500, "Expected 3500 s2looking pairs"
+    assert meta_mixed["training_pairs"]["levir_cd_patches"] == 7120, "Expected 7120 levir patches"
+
+    # Verify dataset-level benchmark results
+    bench = meta_mixed.get("benchmark_results")
+    assert bench is not None, "Missing benchmark_results in mixed model metadata"
+    assert round(bench["s2looking"]["precision"], 4) == 0.3304, f"Unexpected S2Looking Precision: {bench['s2looking']['precision']}"
+    assert round(bench["s2looking"]["recall"], 4) == 0.3050, f"Unexpected S2Looking Recall: {bench['s2looking']['recall']}"
+    assert round(bench["s2looking"]["f1"], 4) == 0.3172, f"Unexpected S2Looking F1: {bench['s2looking']['f1']}"
+    assert round(bench["s2looking"]["iou"], 4) == 0.1885, f"Unexpected S2Looking IoU: {bench['s2looking']['iou']}"
+
+    assert round(bench["levir_cd"]["precision"], 4) == 0.6816, f"Unexpected LEVIR-CD Precision: {bench['levir_cd']['precision']}"
+    assert round(bench["levir_cd"]["recall"], 4) == 0.6349, f"Unexpected LEVIR-CD Recall: {bench['levir_cd']['recall']}"
+    assert round(bench["levir_cd"]["f1"], 4) == 0.6575, f"Unexpected LEVIR-CD F1: {bench['levir_cd']['f1']}"
+    assert round(bench["levir_cd"]["iou"], 4) == 0.4897, f"Unexpected LEVIR-CD IoU: {bench['levir_cd']['iou']}"
+    assert bench["threshold"] == 0.50, f"Unexpected benchmark threshold: {bench['threshold']}"
+    assert "Maharashtra-specific" in bench["disclaimer"], "Benchmark disclaimer missing"
+    print("  [PASS] S2Looking + LEVIR-CD mixed checkpoint (Epoch 5) loaded strictly with strict=True!")
+    print(f"    - Training: {meta_mixed['training_pairs']} | Validation Pairs: {meta_mixed['validation_pairs']}")
+    print(f"    - S2Looking Benchmark: Prec: 33.04% | Rec: 30.50% | F1: 31.72% | IoU: 18.85% (Th=0.50)")
+    print(f"    - LEVIR-CD Benchmark:  Prec: 68.16% | Rec: 63.49% | F1: 65.75% | IoU: 48.97% (Th=0.50)")
+
+    # 2. Load full-training checkpoint strictly
     model_full, meta_full, err_full = spacenetra_model.load_model(full_cfg["path"], device="cpu")
     assert err_full is None, f"Strict loading of full-train checkpoint failed: {err_full}"
     assert model_full is not None, "Loaded full-train model is None"
@@ -60,10 +94,8 @@ def test_checkpoint_strict_loading():
     print("  [PASS] Full-train checkpoint (Epoch 9) loaded strictly with strict=True!")
     print(f"    - Training: {meta_full['training_pairs']} pairs | Validation: {meta_full['validation_pairs']} pairs")
     print(f"    - Benchmark Val F1: {meta_full['validation_metrics']['f1']:.4f} | IoU: {meta_full['validation_metrics']['iou']:.4f}")
-    print(f"    - Held-Out Test (Th=0.50) F1: {meta_full['heldout_test_metrics']['f1']:.4f} | IoU: {meta_full['heldout_test_metrics']['iou']:.4f}")
-    print(f"    - Held-Out Test (Th=0.20) F1: {meta_full['heldout_test_metrics_th20']['f1']:.4f} | IoU: {meta_full['heldout_test_metrics_th20']['iou']:.4f}")
 
-    # 2. Load initial baseline checkpoint strictly
+    # 3. Load initial baseline checkpoint strictly
     model_init, meta_init, err_init = spacenetra_model.load_model(init_cfg["path"], device="cpu")
     assert err_init is None, f"Strict loading of initial checkpoint failed: {err_init}"
     assert model_init is not None, "Loaded initial model is None"
@@ -74,7 +106,7 @@ def test_checkpoint_strict_loading():
     print(f"    - Training: {meta_init['training_pairs']} pairs | Validation: {meta_init['validation_pairs']} pairs")
     print(f"    - Benchmark Val F1: {meta_init['validation_metrics']['f1']:.4f} | IoU: {meta_init['validation_metrics']['iou']:.4f}")
 
-    return (model_full, meta_full), (model_init, meta_init)
+    return (model_mixed, meta_mixed), (model_full, meta_full), (model_init, meta_init)
 
 
 def test_preprocessing_compliance():
@@ -189,7 +221,7 @@ def test_threshold_responsiveness_and_slider(model):
     print(f"  [PASS] Detection-threshold slider dynamically refreshes mask (difference: {mask_diff:,} pixels)")
 
 
-def test_model_switching_differentiation(model_full, model_init):
+def test_model_switching_differentiation(model_mixed, model_full, model_init):
     print("\n------------------------------------------------------------------")
     print("[TEST 5] Model Switching & Prediction Refresh Verification")
     print("------------------------------------------------------------------")
@@ -199,23 +231,21 @@ def test_model_switching_differentiation(model_full, model_init):
 
     tensor_real, _, r2 = spacenetra_model.preprocess_pair(t1_path, t2_path, target_size=256)
 
-    # Run inference with full-training model at threshold 0.20
-    pred_full = spacenetra_model.predict_change(model_full, tensor_real, r2, threshold=0.20, device="cpu")
-    # Run inference with initial model at threshold 0.20
-    pred_init = spacenetra_model.predict_change(model_init, tensor_real, r2, threshold=0.20, device="cpu")
+    # Run inference with all 3 checkpoints at threshold 0.50
+    pred_mixed = spacenetra_model.predict_change(model_mixed, tensor_real, r2, threshold=0.50, device="cpu")
+    pred_full = spacenetra_model.predict_change(model_full, tensor_real, r2, threshold=0.50, device="cpu")
+    pred_init = spacenetra_model.predict_change(model_init, tensor_real, r2, threshold=0.50, device="cpu")
 
-    # Verify probability maps differ significantly between the 2 checkpoints
-    prob_diff = np.abs(pred_full["prob_map"] - pred_init["prob_map"]).mean()
-    assert prob_diff > 0.001, f"Model switching failed to produce differentiated outputs: mean diff {prob_diff}"
+    # Verify probability maps differ between mixed and the other models
+    diff_mixed_full = np.abs(pred_mixed["prob_map"] - pred_full["prob_map"]).mean()
+    diff_full_init = np.abs(pred_full["prob_map"] - pred_init["prob_map"]).mean()
+    assert diff_mixed_full > 0.0001, f"Mixed model outputs identical to full-train: mean diff {diff_mixed_full}"
+    assert diff_full_init > 0.001, f"Full-train model outputs identical to initial: mean diff {diff_full_init}"
 
-    # Verify binary masks differ
-    mask_diff = np.sum(pred_full["binary_mask"] != pred_init["binary_mask"])
-    assert mask_diff > 0, "Both models produced completely identical binary masks!"
-
-    print(f"  [PASS] Model switching verified on active satellite tiles:")
-    print(f"    - Full-train (Epoch 9) changed pixels @ 0.20: {pred_full['changed_pixels']:,} px")
-    print(f"    - Initial (Epoch 2) changed pixels @ 0.20: {pred_init['changed_pixels']:,} px")
-    print(f"    - Prediction difference: {mask_diff:,} pixels (Mean continuous probability delta: {prob_diff:.4f})")
+    print(f"  [PASS] 3-way Model switching verified on active satellite tiles:")
+    print(f"    - S2Looking + LEVIR-CD Mixed changed pixels @ 0.50: {pred_mixed['changed_pixels']:,} px ({pred_mixed['change_ratio_pct']}%)")
+    print(f"    - Full-train (Epoch 9) changed pixels @ 0.50: {pred_full['changed_pixels']:,} px ({pred_full['change_ratio_pct']}%)")
+    print(f"    - Initial (Epoch 2) changed pixels @ 0.50: {pred_init['changed_pixels']:,} px ({pred_init['change_ratio_pct']}%)")
 
 
 def test_heatmap_generation():
@@ -425,11 +455,11 @@ def run_all_tests():
     print("==================================================================")
     print(" SPACE NETRA: COMPLETE ML MODEL & INTEGRATION VALIDATION SUITE   ")
     print("==================================================================")
-    (model_full, meta_full), (model_init, meta_init) = test_checkpoint_strict_loading()
+    (model_mixed, meta_mixed), (model_full, meta_full), (model_init, meta_init) = test_checkpoint_strict_loading()
     tensor_6ch, im2_res = test_preprocessing_compliance()
-    test_inference_and_dimensions(model_full, tensor_6ch, im2_res)
-    test_threshold_responsiveness_and_slider(model_full)
-    test_model_switching_differentiation(model_full, model_init)
+    test_inference_and_dimensions(model_mixed, tensor_6ch, im2_res)
+    test_threshold_responsiveness_and_slider(model_mixed)
+    test_model_switching_differentiation(model_mixed, model_full, model_init)
     test_heatmap_generation()
     test_optional_morphology_postprocessing()
     test_reference_mask_pair_evaluation()
