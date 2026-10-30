@@ -17,16 +17,56 @@ import torch.nn as nn
 
 INITIAL_CHECKPOINT_PATH = os.path.join("models", "spacenetra_s2looking_unet.pth")
 FULLTRAIN_CHECKPOINT_PATH = os.path.join("models", "spacenetra_s2looking_unet_fulltrain_best.pth")
+MIXED_CHECKPOINT_PATH = os.path.join("models", "spacenetra_s2looking_levir_20261030_031904_best.pth")
 
 # Backward compatibility aliases
 ORIGINAL_CHECKPOINT_PATH = INITIAL_CHECKPOINT_PATH
-DEFAULT_CHECKPOINT_PATH = FULLTRAIN_CHECKPOINT_PATH
+DEFAULT_CHECKPOINT_PATH = MIXED_CHECKPOINT_PATH
+
+# Standard decision boundary threshold (do not hardcode independently across functions)
+DEFAULT_THRESHOLD: float = 0.50
 
 CHECKPOINTS_CONFIG: Dict[str, Dict] = {
+    "mixed": {
+        "id": "mixed",
+        "title": "S2Looking + LEVIR-CD mixed model",
+        "short_label": "S2Looking + LEVIR-CD mixed model",
+        "path": MIXED_CHECKPOINT_PATH,
+        "epoch": 5,
+        "training_datasets": ["S2Looking", "LEVIR-CD"],
+        "training_pairs": {"s2looking": 3500, "levir_cd_patches": 7120},
+        "description": "Trained on mixed S2Looking (3,500 pairs) and LEVIR-CD (7,120 patches) datasets with the existing U-Net architecture. Best checkpoint selected from epoch 5 using mean validation F1 across S2Looking and LEVIR-CD.",
+        "benchmark_test_metrics": {
+            "s2looking": {
+                "dataset": "S2Looking test",
+                "precision": 0.3304,
+                "recall": 0.3050,
+                "f1": 0.3172,
+                "iou": 0.1885,
+                "threshold": 0.50
+            },
+            "levir_cd": {
+                "dataset": "LEVIR-CD test",
+                "precision": 0.6816,
+                "recall": 0.6349,
+                "f1": 0.6575,
+                "iou": 0.4897,
+                "threshold": 0.50
+            },
+            "threshold": 0.50,
+            "disclaimer": "These are separate benchmark results, not Maharashtra-specific accuracy."
+        },
+        "metrics_val": {
+            "s2looking": {"loss": 0.8336, "precision": 0.3936, "recall": 0.3377, "f1": 0.3635, "iou": 0.2221},
+            "levir_cd": {"loss": 0.5449, "precision": 0.6197, "recall": 0.5669, "f1": 0.5921, "iou": 0.4206},
+            "mean_f1": 0.4778
+        },
+        "selection_note": "Selected using the mean validation F1 across S2Looking and LEVIR-CD."
+    },
     "fulltrain": {
         "id": "fulltrain",
-        "title": "Full-training model — trained on 3,500 pairs; best checkpoint from epoch 9",
-        "short_label": "Full-Training Model (3,500 pairs, Epoch 9 best)",
+        "title": "S2Looking full-training model",
+        "short_label": "S2Looking full-training model",
         "path": FULLTRAIN_CHECKPOINT_PATH,
         "epoch": 9,
         "training_pairs": 3500,
@@ -59,8 +99,8 @@ CHECKPOINTS_CONFIG: Dict[str, Dict] = {
     },
     "initial": {
         "id": "initial",
-        "title": "Original model — initial 500-pair experiment",
-        "short_label": "Original Model (500 pairs, Epoch 2)",
+        "title": "S2Looking baseline — original checkpoint",
+        "short_label": "S2Looking baseline — original checkpoint",
         "path": INITIAL_CHECKPOINT_PATH,
         "epoch": 2,
         "training_pairs": 500,
@@ -168,9 +208,9 @@ def load_model(
         model.to(device)
         model.eval()
 
-        ckpt_epoch = checkpoint.get("epoch", 2 if "fulltrain" not in checkpoint_path else 9)
-        training_pairs = checkpoint.get("training_pairs", 500 if ckpt_epoch == 2 else 3500)
-        validation_pairs = checkpoint.get("validation_pairs", 100 if ckpt_epoch == 2 else 500)
+        ckpt_epoch = checkpoint.get("epoch", 5 if ("levir" in checkpoint_path or "mixed" in checkpoint_path) else (9 if "fulltrain" in checkpoint_path else 2))
+        training_pairs = checkpoint.get("training_pairs", {"s2looking": 3500, "levir_cd_patches": 7120} if ckpt_epoch == 5 else (3500 if ckpt_epoch == 9 else 500))
+        validation_pairs = checkpoint.get("validation_pairs", 500 if ckpt_epoch in (5, 9) else 100)
         default_val = (
             {"precision": 0.2993, "recall": 0.1534, "f1": 0.2028, "iou": 0.1129, "loss": 1.1263}
             if ckpt_epoch == 2 else
@@ -198,6 +238,29 @@ def load_model(
                 "iou": 0.2141
             }
 
+        benchmark_results = None
+        if "levir" in checkpoint_path or "mixed" in checkpoint_path or ckpt_epoch == 5:
+            benchmark_results = {
+                "s2looking": {
+                    "dataset": "S2Looking test",
+                    "precision": 0.3304,
+                    "recall": 0.3050,
+                    "f1": 0.3172,
+                    "iou": 0.1885,
+                    "threshold": 0.50
+                },
+                "levir_cd": {
+                    "dataset": "LEVIR-CD test",
+                    "precision": 0.6816,
+                    "recall": 0.6349,
+                    "f1": 0.6575,
+                    "iou": 0.4897,
+                    "threshold": 0.50
+                },
+                "threshold": 0.50,
+                "disclaimer": "These are separate benchmark results, not Maharashtra-specific accuracy."
+            }
+
         metadata = {
             "checkpoint_path": checkpoint_path,
             "checkpoint_filename": os.path.basename(checkpoint_path),
@@ -210,6 +273,9 @@ def load_model(
             "validation_metrics": validation_metrics,
             "heldout_test_metrics": heldout_test_metrics,
             "heldout_test_metrics_th20": heldout_test_metrics_th20,
+            "benchmark_results": benchmark_results,
+            "training_datasets": checkpoint.get("training_datasets", ["S2Looking", "LEVIR-CD"] if benchmark_results else ["S2Looking"]),
+            "selection_note": checkpoint.get("selection_note", ""),
             "is_experimental": True,
             "device": device
         }
@@ -279,7 +345,7 @@ def generate_probability_heatmap(prob_map: np.ndarray, colormap: int = cv2.COLOR
 def apply_threshold_to_prob_map(
     prob_map: np.ndarray,
     later_pil: Image.Image,
-    threshold: float = 0.20
+    threshold: float = DEFAULT_THRESHOLD
 ) -> Dict:
     """
     Applies a decision threshold to an existing probability map without re-running model forward pass.
@@ -321,7 +387,7 @@ def predict_change(
     model: SpaceNetraUNet,
     tensor_6ch: torch.Tensor,
     later_pil: Image.Image,
-    threshold: float = 0.20,
+    threshold: float = DEFAULT_THRESHOLD,
     device: str = "cpu"
 ) -> Dict:
     """
