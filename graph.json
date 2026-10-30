@@ -7,53 +7,55 @@
       "source_system": "python"
     },
     {
-      "id": "func:app.py:load_models",
+      "id": "func:app.py:get_cached_unet",
       "type": "function",
-      "name": "load_models",
+      "name": "get_cached_unet",
       "source_system": "python",
       "metadata": {
         "file": "app.py",
-        "lineno": 32
+        "lineno": 709
       }
     },
     {
-      "id": "func:app.py:get_wayback_releases",
+      "id": "func:app.py:load_clip_faiss",
       "type": "function",
-      "name": "get_wayback_releases",
+      "name": "load_clip_faiss",
       "source_system": "python",
       "metadata": {
         "file": "app.py",
-        "lineno": 44
+        "lineno": 1146
       }
     },
     {
-      "id": "func:app.py:get_tile_id_for_year",
+      "id": "file:area_metrics.py",
+      "type": "file",
+      "name": "area_metrics.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:area_metrics.py:calculate_geospatial_metrics",
       "type": "function",
-      "name": "get_tile_id_for_year",
+      "name": "calculate_geospatial_metrics",
       "source_system": "python",
       "metadata": {
-        "file": "app.py",
-        "lineno": 85
+        "file": "area_metrics.py",
+        "lineno": 10
       }
     },
     {
-      "id": "func:app.py:deg2num",
-      "type": "function",
-      "name": "deg2num",
-      "source_system": "python",
-      "metadata": {
-        "file": "app.py",
-        "lineno": 101
-      }
+      "id": "file:building_detector.py",
+      "type": "file",
+      "name": "building_detector.py",
+      "source_system": "python"
     },
     {
-      "id": "func:app.py:fetch_temporal_tiles",
+      "id": "func:building_detector.py:detect_new_buildings",
       "type": "function",
-      "name": "fetch_temporal_tiles",
+      "name": "detect_new_buildings",
       "source_system": "python",
       "metadata": {
-        "file": "app.py",
-        "lineno": 108
+        "file": "building_detector.py",
+        "lineno": 13
       }
     },
     {
@@ -73,6 +75,48 @@
       }
     },
     {
+      "id": "file:change_engine.py",
+      "type": "file",
+      "name": "change_engine.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:change_engine.py:compute_ndvi",
+      "type": "function",
+      "name": "compute_ndvi",
+      "source_system": "python",
+      "metadata": {
+        "file": "change_engine.py",
+        "lineno": 12
+      }
+    },
+    {
+      "id": "func:change_engine.py:detect_surface_changes",
+      "type": "function",
+      "name": "detect_surface_changes",
+      "source_system": "python",
+      "metadata": {
+        "file": "change_engine.py",
+        "lineno": 23
+      }
+    },
+    {
+      "id": "file:city_catalog.py",
+      "type": "file",
+      "name": "city_catalog.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:city_catalog.py:get_hotspot_info",
+      "type": "function",
+      "name": "get_hotspot_info",
+      "source_system": "python",
+      "metadata": {
+        "file": "city_catalog.py",
+        "lineno": 80
+      }
+    },
+    {
       "id": "file:download_images.py",
       "type": "file",
       "name": "download_images.py",
@@ -86,6 +130,62 @@
       "metadata": {
         "file": "download_images.py",
         "lineno": 1
+      }
+    },
+    {
+      "id": "file:download_satellite_data.py",
+      "type": "file",
+      "name": "download_satellite_data.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:download_satellite_data.py:query_stac_for_anniversary_scenes",
+      "type": "function",
+      "name": "query_stac_for_anniversary_scenes",
+      "source_system": "python",
+      "metadata": {
+        "file": "download_satellite_data.py",
+        "lineno": 43
+      }
+    },
+    {
+      "id": "func:download_satellite_data.py:download_real_sentinel2_rasters",
+      "type": "function",
+      "name": "download_real_sentinel2_rasters",
+      "source_system": "python",
+      "metadata": {
+        "file": "download_satellite_data.py",
+        "lineno": 97
+      }
+    },
+    {
+      "id": "func:download_satellite_data.py:synthesize_calibrated_rasters",
+      "type": "function",
+      "name": "synthesize_calibrated_rasters",
+      "source_system": "python",
+      "metadata": {
+        "file": "download_satellite_data.py",
+        "lineno": 109
+      }
+    },
+    {
+      "id": "func:download_satellite_data.py:create_rgb_visual",
+      "type": "function",
+      "name": "create_rgb_visual",
+      "source_system": "python",
+      "metadata": {
+        "file": "download_satellite_data.py",
+        "lineno": 176
+      }
+    },
+    {
+      "id": "func:download_satellite_data.py:main",
+      "type": "function",
+      "name": "main",
+      "source_system": "python",
+      "metadata": {
+        "file": "download_satellite_data.py",
+        "lineno": 259
       }
     },
     {
@@ -103,43 +203,1012 @@
         "file": "ingest.py",
         "lineno": 13
       }
+    },
+    {
+      "id": "file:photo_streamer.py",
+      "type": "file",
+      "name": "photo_streamer.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:photo_streamer.py:deg2num",
+      "type": "function",
+      "name": "deg2num",
+      "source_system": "python",
+      "metadata": {
+        "file": "photo_streamer.py",
+        "lineno": 40
+      }
+    },
+    {
+      "id": "func:photo_streamer.py:calculate_ground_resolution",
+      "type": "function",
+      "name": "calculate_ground_resolution",
+      "source_system": "python",
+      "metadata": {
+        "file": "photo_streamer.py",
+        "lineno": 48
+      }
+    },
+    {
+      "id": "func:photo_streamer.py:is_procedural_synthetic",
+      "type": "function",
+      "name": "is_procedural_synthetic",
+      "source_system": "python",
+      "metadata": {
+        "file": "photo_streamer.py",
+        "lineno": 57
+      }
+    },
+    {
+      "id": "func:photo_streamer.py:is_real_tile",
+      "type": "function",
+      "name": "is_real_tile",
+      "source_system": "python",
+      "metadata": {
+        "file": "photo_streamer.py",
+        "lineno": 100
+      }
+    },
+    {
+      "id": "func:photo_streamer.py:fetch_single_tile",
+      "type": "function",
+      "name": "fetch_single_tile",
+      "source_system": "python",
+      "metadata": {
+        "file": "photo_streamer.py",
+        "lineno": 106
+      }
+    },
+    {
+      "id": "func:photo_streamer.py:generate_photorealistic_fallback",
+      "type": "function",
+      "name": "generate_photorealistic_fallback",
+      "source_system": "python",
+      "metadata": {
+        "file": "photo_streamer.py",
+        "lineno": 124
+      }
+    },
+    {
+      "id": "func:photo_streamer.py:fetch_real_tile_with_pyramid_fallback",
+      "type": "function",
+      "name": "fetch_real_tile_with_pyramid_fallback",
+      "source_system": "python",
+      "metadata": {
+        "file": "photo_streamer.py",
+        "lineno": 192
+      }
+    },
+    {
+      "id": "func:photo_streamer.py:fetch_3stage_photographic_timeline",
+      "type": "function",
+      "name": "fetch_3stage_photographic_timeline",
+      "source_system": "python",
+      "metadata": {
+        "file": "photo_streamer.py",
+        "lineno": 247
+      }
+    },
+    {
+      "id": "file:preprocessor.py",
+      "type": "file",
+      "name": "preprocessor.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:preprocessor.py:build_valid_pixel_mask",
+      "type": "function",
+      "name": "build_valid_pixel_mask",
+      "source_system": "python",
+      "metadata": {
+        "file": "preprocessor.py",
+        "lineno": 25
+      }
+    },
+    {
+      "id": "func:preprocessor.py:normalize_reflectance",
+      "type": "function",
+      "name": "normalize_reflectance",
+      "source_system": "python",
+      "metadata": {
+        "file": "preprocessor.py",
+        "lineno": 37
+      }
+    },
+    {
+      "id": "file:satellite_catalog.py",
+      "type": "file",
+      "name": "satellite_catalog.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:satellite_catalog.py:search_scenes",
+      "type": "function",
+      "name": "search_scenes",
+      "source_system": "python",
+      "metadata": {
+        "file": "satellite_catalog.py",
+        "lineno": 15
+      }
+    },
+    {
+      "id": "file:satellite_loader.py",
+      "type": "file",
+      "name": "satellite_loader.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:satellite_loader.py:load_band",
+      "type": "function",
+      "name": "load_band",
+      "source_system": "python",
+      "metadata": {
+        "file": "satellite_loader.py",
+        "lineno": 26
+      }
+    },
+    {
+      "id": "func:satellite_loader.py:load_temporal_pair",
+      "type": "function",
+      "name": "load_temporal_pair",
+      "source_system": "python",
+      "metadata": {
+        "file": "satellite_loader.py",
+        "lineno": 52
+      }
+    },
+    {
+      "id": "file:spacenetra_model.py",
+      "type": "file",
+      "name": "spacenetra_model.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:spacenetra_model.py:conv_block",
+      "type": "function",
+      "name": "conv_block",
+      "source_system": "python",
+      "metadata": {
+        "file": "spacenetra_model.py",
+        "lineno": 83
+      }
+    },
+    {
+      "id": "func:spacenetra_model.py:__init__",
+      "type": "function",
+      "name": "__init__",
+      "source_system": "python",
+      "metadata": {
+        "file": "spacenetra_model.py",
+        "lineno": 104
+      }
+    },
+    {
+      "id": "func:spacenetra_model.py:forward",
+      "type": "function",
+      "name": "forward",
+      "source_system": "python",
+      "metadata": {
+        "file": "spacenetra_model.py",
+        "lineno": 129
+      }
+    },
+    {
+      "id": "func:spacenetra_model.py:load_model",
+      "type": "function",
+      "name": "load_model",
+      "source_system": "python",
+      "metadata": {
+        "file": "spacenetra_model.py",
+        "lineno": 145
+      }
+    },
+    {
+      "id": "func:spacenetra_model.py:preprocess_pair",
+      "type": "function",
+      "name": "preprocess_pair",
+      "source_system": "python",
+      "metadata": {
+        "file": "spacenetra_model.py",
+        "lineno": 223
+      }
+    },
+    {
+      "id": "func:spacenetra_model.py:generate_probability_heatmap",
+      "type": "function",
+      "name": "generate_probability_heatmap",
+      "source_system": "python",
+      "metadata": {
+        "file": "spacenetra_model.py",
+        "lineno": 269
+      }
+    },
+    {
+      "id": "func:spacenetra_model.py:apply_threshold_to_prob_map",
+      "type": "function",
+      "name": "apply_threshold_to_prob_map",
+      "source_system": "python",
+      "metadata": {
+        "file": "spacenetra_model.py",
+        "lineno": 279
+      }
+    },
+    {
+      "id": "func:spacenetra_model.py:predict_change",
+      "type": "function",
+      "name": "predict_change",
+      "source_system": "python",
+      "metadata": {
+        "file": "spacenetra_model.py",
+        "lineno": 320
+      }
+    },
+    {
+      "id": "func:spacenetra_model.py:apply_optional_morphology",
+      "type": "function",
+      "name": "apply_optional_morphology",
+      "source_system": "python",
+      "metadata": {
+        "file": "spacenetra_model.py",
+        "lineno": 345
+      }
+    },
+    {
+      "id": "func:spacenetra_model.py:evaluate_against_reference_mask",
+      "type": "function",
+      "name": "evaluate_against_reference_mask",
+      "source_system": "python",
+      "metadata": {
+        "file": "spacenetra_model.py",
+        "lineno": 375
+      }
+    },
+    {
+      "id": "func:spacenetra_model.py:compute_threshold_sensitivity_diagnostic",
+      "type": "function",
+      "name": "compute_threshold_sensitivity_diagnostic",
+      "source_system": "python",
+      "metadata": {
+        "file": "spacenetra_model.py",
+        "lineno": 442
+      }
+    },
+    {
+      "id": "func:spacenetra_model.py:verify_input_consistency_and_alignment",
+      "type": "function",
+      "name": "verify_input_consistency_and_alignment",
+      "source_system": "python",
+      "metadata": {
+        "file": "spacenetra_model.py",
+        "lineno": 469
+      }
+    },
+    {
+      "id": "file:temp/app_backup.py",
+      "type": "file",
+      "name": "temp/app_backup.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:temp/app_backup.py:<module>",
+      "type": "function",
+      "name": "<module>",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/app_backup.py",
+        "lineno": 1
+      }
+    },
+    {
+      "id": "file:temp/audit_images.py",
+      "type": "file",
+      "name": "temp/audit_images.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:temp/audit_images.py:is_procedural_synthetic",
+      "type": "function",
+      "name": "is_procedural_synthetic",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/audit_images.py",
+        "lineno": 19
+      }
+    },
+    {
+      "id": "file:temp/build_all_observations_pdf.py",
+      "type": "file",
+      "name": "temp/build_all_observations_pdf.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:temp/build_all_observations_pdf.py:generate_pdf",
+      "type": "function",
+      "name": "generate_pdf",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/build_all_observations_pdf.py",
+        "lineno": 8
+      }
+    },
+    {
+      "id": "file:temp/find_other_hashes.py",
+      "type": "file",
+      "name": "temp/find_other_hashes.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:temp/find_other_hashes.py:<module>",
+      "type": "function",
+      "name": "<module>",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/find_other_hashes.py",
+        "lineno": 1
+      }
+    },
+    {
+      "id": "file:temp/inspect_hotspots.py",
+      "type": "file",
+      "name": "temp/inspect_hotspots.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:temp/inspect_hotspots.py:<module>",
+      "type": "function",
+      "name": "<module>",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/inspect_hotspots.py",
+        "lineno": 1
+      }
+    },
+    {
+      "id": "file:temp/make_test.py",
+      "type": "file",
+      "name": "temp/make_test.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:temp/make_test.py:create_minimal_pdf",
+      "type": "function",
+      "name": "create_minimal_pdf",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/make_test.py",
+        "lineno": 3
+      }
+    },
+    {
+      "id": "file:temp/match_hashes.py",
+      "type": "file",
+      "name": "temp/match_hashes.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:temp/match_hashes.py:<module>",
+      "type": "function",
+      "name": "<module>",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/match_hashes.py",
+        "lineno": 1
+      }
+    },
+    {
+      "id": "file:temp/pdf_builder.py",
+      "type": "file",
+      "name": "temp/pdf_builder.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:temp/pdf_builder.py:__init__",
+      "type": "function",
+      "name": "__init__",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/pdf_builder.py",
+        "lineno": 5
+      }
+    },
+    {
+      "id": "func:temp/pdf_builder.py:_cmd",
+      "type": "function",
+      "name": "_cmd",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/pdf_builder.py",
+        "lineno": 38
+      }
+    },
+    {
+      "id": "func:temp/pdf_builder.py:_flush_page",
+      "type": "function",
+      "name": "_flush_page",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/pdf_builder.py",
+        "lineno": 41
+      }
+    },
+    {
+      "id": "func:temp/pdf_builder.py:new_page",
+      "type": "function",
+      "name": "new_page",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/pdf_builder.py",
+        "lineno": 46
+      }
+    },
+    {
+      "id": "func:temp/pdf_builder.py:_draw_header_footer",
+      "type": "function",
+      "name": "_draw_header_footer",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/pdf_builder.py",
+        "lineno": 53
+      }
+    },
+    {
+      "id": "func:temp/pdf_builder.py:check_space",
+      "type": "function",
+      "name": "check_space",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/pdf_builder.py",
+        "lineno": 84
+      }
+    },
+    {
+      "id": "func:temp/pdf_builder.py:draw_cover",
+      "type": "function",
+      "name": "draw_cover",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/pdf_builder.py",
+        "lineno": 88
+      }
+    },
+    {
+      "id": "func:temp/pdf_builder.py:add_h1",
+      "type": "function",
+      "name": "add_h1",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/pdf_builder.py",
+        "lineno": 173
+      }
+    },
+    {
+      "id": "func:temp/pdf_builder.py:add_h2",
+      "type": "function",
+      "name": "add_h2",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/pdf_builder.py",
+        "lineno": 188
+      }
+    },
+    {
+      "id": "func:temp/pdf_builder.py:add_h3",
+      "type": "function",
+      "name": "add_h3",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/pdf_builder.py",
+        "lineno": 196
+      }
+    },
+    {
+      "id": "func:temp/pdf_builder.py:add_p",
+      "type": "function",
+      "name": "add_p",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/pdf_builder.py",
+        "lineno": 202
+      }
+    },
+    {
+      "id": "func:temp/pdf_builder.py:add_bullet",
+      "type": "function",
+      "name": "add_bullet",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/pdf_builder.py",
+        "lineno": 214
+      }
+    },
+    {
+      "id": "func:temp/pdf_builder.py:add_callout",
+      "type": "function",
+      "name": "add_callout",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/pdf_builder.py",
+        "lineno": 238
+      }
+    },
+    {
+      "id": "func:temp/pdf_builder.py:add_table",
+      "type": "function",
+      "name": "add_table",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/pdf_builder.py",
+        "lineno": 258
+      }
+    },
+    {
+      "id": "func:temp/pdf_builder.py:add_diagram_box",
+      "type": "function",
+      "name": "add_diagram_box",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/pdf_builder.py",
+        "lineno": 298
+      }
+    },
+    {
+      "id": "func:temp/pdf_builder.py:_draw_text",
+      "type": "function",
+      "name": "_draw_text",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/pdf_builder.py",
+        "lineno": 312
+      }
+    },
+    {
+      "id": "func:temp/pdf_builder.py:_draw_rect",
+      "type": "function",
+      "name": "_draw_rect",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/pdf_builder.py",
+        "lineno": 319
+      }
+    },
+    {
+      "id": "func:temp/pdf_builder.py:_wrap_text",
+      "type": "function",
+      "name": "_wrap_text",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/pdf_builder.py",
+        "lineno": 332
+      }
+    },
+    {
+      "id": "func:temp/pdf_builder.py:build",
+      "type": "function",
+      "name": "build",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/pdf_builder.py",
+        "lineno": 355
+      }
+    },
+    {
+      "id": "file:temp/prefetch_all_hotspots.py",
+      "type": "file",
+      "name": "temp/prefetch_all_hotspots.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:temp/prefetch_all_hotspots.py:<module>",
+      "type": "function",
+      "name": "<module>",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/prefetch_all_hotspots.py",
+        "lineno": 1
+      }
+    },
+    {
+      "id": "file:temp/test_multipage.py",
+      "type": "file",
+      "name": "temp/test_multipage.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:temp/test_multipage.py:__init__",
+      "type": "function",
+      "name": "__init__",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/test_multipage.py",
+        "lineno": 4
+      }
+    },
+    {
+      "id": "func:temp/test_multipage.py:add_page",
+      "type": "function",
+      "name": "add_page",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/test_multipage.py",
+        "lineno": 15
+      }
+    },
+    {
+      "id": "func:temp/test_multipage.py:end_document",
+      "type": "function",
+      "name": "end_document",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/test_multipage.py",
+        "lineno": 20
+      }
+    },
+    {
+      "id": "func:temp/test_multipage.py:set_fill_color",
+      "type": "function",
+      "name": "set_fill_color",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/test_multipage.py",
+        "lineno": 25
+      }
+    },
+    {
+      "id": "func:temp/test_multipage.py:set_stroke_color",
+      "type": "function",
+      "name": "set_stroke_color",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/test_multipage.py",
+        "lineno": 28
+      }
+    },
+    {
+      "id": "func:temp/test_multipage.py:set_line_width",
+      "type": "function",
+      "name": "set_line_width",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/test_multipage.py",
+        "lineno": 31
+      }
+    },
+    {
+      "id": "func:temp/test_multipage.py:rect",
+      "type": "function",
+      "name": "rect",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/test_multipage.py",
+        "lineno": 34
+      }
+    },
+    {
+      "id": "func:temp/test_multipage.py:line",
+      "type": "function",
+      "name": "line",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/test_multipage.py",
+        "lineno": 38
+      }
+    },
+    {
+      "id": "func:temp/test_multipage.py:text",
+      "type": "function",
+      "name": "text",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/test_multipage.py",
+        "lineno": 41
+      }
+    },
+    {
+      "id": "func:temp/test_multipage.py:write",
+      "type": "function",
+      "name": "write",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/test_multipage.py",
+        "lineno": 48
+      }
+    },
+    {
+      "id": "file:temp/test_pyramid.py",
+      "type": "file",
+      "name": "temp/test_pyramid.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:temp/test_pyramid.py:test_pyramid",
+      "type": "function",
+      "name": "test_pyramid",
+      "source_system": "python",
+      "metadata": {
+        "file": "temp/test_pyramid.py",
+        "lineno": 11
+      }
+    },
+    {
+      "id": "file:test_backend_services.py",
+      "type": "file",
+      "name": "test_backend_services.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:test_backend_services.py:run_tests",
+      "type": "function",
+      "name": "run_tests",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_backend_services.py",
+        "lineno": 11
+      }
+    },
+    {
+      "id": "file:test_citywide_detection.py",
+      "type": "file",
+      "name": "test_citywide_detection.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:test_citywide_detection.py:test_citywide",
+      "type": "function",
+      "name": "test_citywide",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_citywide_detection.py",
+        "lineno": 11
+      }
+    },
+    {
+      "id": "file:test_ml_model.py",
+      "type": "file",
+      "name": "test_ml_model.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:test_ml_model.py:test_checkpoint_strict_loading",
+      "type": "function",
+      "name": "test_checkpoint_strict_loading",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_ml_model.py",
+        "lineno": 27
+      }
+    },
+    {
+      "id": "func:test_ml_model.py:test_preprocessing_compliance",
+      "type": "function",
+      "name": "test_preprocessing_compliance",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_ml_model.py",
+        "lineno": 80
+      }
+    },
+    {
+      "id": "func:test_ml_model.py:test_inference_and_dimensions",
+      "type": "function",
+      "name": "test_inference_and_dimensions",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_ml_model.py",
+        "lineno": 116
+      }
+    },
+    {
+      "id": "func:test_ml_model.py:test_threshold_responsiveness_and_slider",
+      "type": "function",
+      "name": "test_threshold_responsiveness_and_slider",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_ml_model.py",
+        "lineno": 147
+      }
+    },
+    {
+      "id": "func:test_ml_model.py:test_model_switching_differentiation",
+      "type": "function",
+      "name": "test_model_switching_differentiation",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_ml_model.py",
+        "lineno": 192
+      }
+    },
+    {
+      "id": "func:test_ml_model.py:test_heatmap_generation",
+      "type": "function",
+      "name": "test_heatmap_generation",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_ml_model.py",
+        "lineno": 221
+      }
+    },
+    {
+      "id": "func:test_ml_model.py:test_optional_morphology_postprocessing",
+      "type": "function",
+      "name": "test_optional_morphology_postprocessing",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_ml_model.py",
+        "lineno": 237
+      }
+    },
+    {
+      "id": "func:test_ml_model.py:test_reference_mask_pair_evaluation",
+      "type": "function",
+      "name": "test_reference_mask_pair_evaluation",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_ml_model.py",
+        "lineno": 265
+      }
+    },
+    {
+      "id": "func:test_ml_model.py:test_traditional_detection_and_semantic_search",
+      "type": "function",
+      "name": "test_traditional_detection_and_semantic_search",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_ml_model.py",
+        "lineno": 322
+      }
+    },
+    {
+      "id": "func:test_ml_model.py:test_threshold_sensitivity_diagnostic_and_registration",
+      "type": "function",
+      "name": "test_threshold_sensitivity_diagnostic_and_registration",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_ml_model.py",
+        "lineno": 366
+      }
+    },
+    {
+      "id": "func:test_ml_model.py:run_all_tests",
+      "type": "function",
+      "name": "run_all_tests",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_ml_model.py",
+        "lineno": 424
+      }
+    },
+    {
+      "id": "file:test_provenance_safety.py",
+      "type": "file",
+      "name": "test_provenance_safety.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:test_provenance_safety.py:test_source_directory_integrity",
+      "type": "function",
+      "name": "test_source_directory_integrity",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_provenance_safety.py",
+        "lineno": 17
+      }
+    },
+    {
+      "id": "func:test_provenance_safety.py:test_quarantine_directory_integrity",
+      "type": "function",
+      "name": "test_quarantine_directory_integrity",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_provenance_safety.py",
+        "lineno": 37
+      }
+    },
+    {
+      "id": "func:test_provenance_safety.py:test_live_acquisition_failure_safety",
+      "type": "function",
+      "name": "test_live_acquisition_failure_safety",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_provenance_safety.py",
+        "lineno": 57
+      }
+    },
+    {
+      "id": "func:test_provenance_safety.py:test_explicit_synthetic_demo_mode",
+      "type": "function",
+      "name": "test_explicit_synthetic_demo_mode",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_provenance_safety.py",
+        "lineno": 95
+      }
+    },
+    {
+      "id": "func:test_provenance_safety.py:test_satellite_loader_provenance",
+      "type": "function",
+      "name": "test_satellite_loader_provenance",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_provenance_safety.py",
+        "lineno": 116
+      }
+    },
+    {
+      "id": "func:test_provenance_safety.py:test_provenance_manifest_honesty",
+      "type": "function",
+      "name": "test_provenance_manifest_honesty",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_provenance_safety.py",
+        "lineno": 126
+      }
+    },
+    {
+      "id": "func:test_provenance_safety.py:test_checkpoint_and_vector_db_intact",
+      "type": "function",
+      "name": "test_checkpoint_and_vector_db_intact",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_provenance_safety.py",
+        "lineno": 141
+      }
+    },
+    {
+      "id": "func:test_provenance_safety.py:run_all_provenance_tests",
+      "type": "function",
+      "name": "run_all_provenance_tests",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_provenance_safety.py",
+        "lineno": 163
+      }
+    },
+    {
+      "id": "file:test_semantic_search.py",
+      "type": "file",
+      "name": "test_semantic_search.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:test_semantic_search.py:test_search",
+      "type": "function",
+      "name": "test_search",
+      "source_system": "python",
+      "metadata": {
+        "file": "test_semantic_search.py",
+        "lineno": 7
+      }
     }
   ],
   "edges": [
     {
-      "source": "func:app.py:load_models",
+      "source": "func:app.py:get_cached_unet",
       "target": "file:app.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in app.py:32"
+      "evidence": "in app.py:709"
     },
     {
-      "source": "func:app.py:get_wayback_releases",
+      "source": "func:app.py:load_clip_faiss",
       "target": "file:app.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in app.py:44"
+      "evidence": "in app.py:1146"
     },
     {
-      "source": "func:app.py:get_tile_id_for_year",
-      "target": "file:app.py",
+      "source": "func:area_metrics.py:calculate_geospatial_metrics",
+      "target": "file:area_metrics.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in app.py:85"
+      "evidence": "in area_metrics.py:10"
     },
     {
-      "source": "func:app.py:deg2num",
-      "target": "file:app.py",
+      "source": "func:building_detector.py:detect_new_buildings",
+      "target": "file:building_detector.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in app.py:101"
-    },
-    {
-      "source": "func:app.py:fetch_temporal_tiles",
-      "target": "file:app.py",
-      "type": "structural_belongs_to",
-      "confidence": 1,
-      "evidence": "in app.py:108"
+      "evidence": "in building_detector.py:13"
     },
     {
       "source": "func:change_detector.py:calculate_change_confidence",
@@ -149,6 +1218,27 @@
       "evidence": "in change_detector.py:5"
     },
     {
+      "source": "func:change_engine.py:compute_ndvi",
+      "target": "file:change_engine.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in change_engine.py:12"
+    },
+    {
+      "source": "func:change_engine.py:detect_surface_changes",
+      "target": "file:change_engine.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in change_engine.py:23"
+    },
+    {
+      "source": "func:city_catalog.py:get_hotspot_info",
+      "target": "file:city_catalog.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in city_catalog.py:80"
+    },
+    {
       "source": "func:download_images.py:<module>",
       "target": "file:download_images.py",
       "type": "structural_belongs_to",
@@ -156,16 +1246,646 @@
       "evidence": "in download_images.py:1"
     },
     {
+      "source": "func:download_satellite_data.py:query_stac_for_anniversary_scenes",
+      "target": "file:download_satellite_data.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in download_satellite_data.py:43"
+    },
+    {
+      "source": "func:download_satellite_data.py:download_real_sentinel2_rasters",
+      "target": "file:download_satellite_data.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in download_satellite_data.py:97"
+    },
+    {
+      "source": "func:download_satellite_data.py:synthesize_calibrated_rasters",
+      "target": "file:download_satellite_data.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in download_satellite_data.py:109"
+    },
+    {
+      "source": "func:download_satellite_data.py:create_rgb_visual",
+      "target": "file:download_satellite_data.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in download_satellite_data.py:176"
+    },
+    {
+      "source": "func:download_satellite_data.py:main",
+      "target": "file:download_satellite_data.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in download_satellite_data.py:259"
+    },
+    {
       "source": "func:ingest.py:process_and_index_images",
       "target": "file:ingest.py",
       "type": "structural_belongs_to",
       "confidence": 1,
       "evidence": "in ingest.py:13"
+    },
+    {
+      "source": "func:photo_streamer.py:deg2num",
+      "target": "file:photo_streamer.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in photo_streamer.py:40"
+    },
+    {
+      "source": "func:photo_streamer.py:calculate_ground_resolution",
+      "target": "file:photo_streamer.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in photo_streamer.py:48"
+    },
+    {
+      "source": "func:photo_streamer.py:is_procedural_synthetic",
+      "target": "file:photo_streamer.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in photo_streamer.py:57"
+    },
+    {
+      "source": "func:photo_streamer.py:is_real_tile",
+      "target": "file:photo_streamer.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in photo_streamer.py:100"
+    },
+    {
+      "source": "func:photo_streamer.py:fetch_single_tile",
+      "target": "file:photo_streamer.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in photo_streamer.py:106"
+    },
+    {
+      "source": "func:photo_streamer.py:generate_photorealistic_fallback",
+      "target": "file:photo_streamer.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in photo_streamer.py:124"
+    },
+    {
+      "source": "func:photo_streamer.py:fetch_real_tile_with_pyramid_fallback",
+      "target": "file:photo_streamer.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in photo_streamer.py:192"
+    },
+    {
+      "source": "func:photo_streamer.py:fetch_3stage_photographic_timeline",
+      "target": "file:photo_streamer.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in photo_streamer.py:247"
+    },
+    {
+      "source": "func:preprocessor.py:build_valid_pixel_mask",
+      "target": "file:preprocessor.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in preprocessor.py:25"
+    },
+    {
+      "source": "func:preprocessor.py:normalize_reflectance",
+      "target": "file:preprocessor.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in preprocessor.py:37"
+    },
+    {
+      "source": "func:satellite_catalog.py:search_scenes",
+      "target": "file:satellite_catalog.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in satellite_catalog.py:15"
+    },
+    {
+      "source": "func:satellite_loader.py:load_band",
+      "target": "file:satellite_loader.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in satellite_loader.py:26"
+    },
+    {
+      "source": "func:satellite_loader.py:load_temporal_pair",
+      "target": "file:satellite_loader.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in satellite_loader.py:52"
+    },
+    {
+      "source": "func:spacenetra_model.py:conv_block",
+      "target": "file:spacenetra_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in spacenetra_model.py:83"
+    },
+    {
+      "source": "func:spacenetra_model.py:__init__",
+      "target": "file:spacenetra_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in spacenetra_model.py:104"
+    },
+    {
+      "source": "func:spacenetra_model.py:forward",
+      "target": "file:spacenetra_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in spacenetra_model.py:129"
+    },
+    {
+      "source": "func:spacenetra_model.py:load_model",
+      "target": "file:spacenetra_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in spacenetra_model.py:145"
+    },
+    {
+      "source": "func:spacenetra_model.py:preprocess_pair",
+      "target": "file:spacenetra_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in spacenetra_model.py:223"
+    },
+    {
+      "source": "func:spacenetra_model.py:generate_probability_heatmap",
+      "target": "file:spacenetra_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in spacenetra_model.py:269"
+    },
+    {
+      "source": "func:spacenetra_model.py:apply_threshold_to_prob_map",
+      "target": "file:spacenetra_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in spacenetra_model.py:279"
+    },
+    {
+      "source": "func:spacenetra_model.py:predict_change",
+      "target": "file:spacenetra_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in spacenetra_model.py:320"
+    },
+    {
+      "source": "func:spacenetra_model.py:apply_optional_morphology",
+      "target": "file:spacenetra_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in spacenetra_model.py:345"
+    },
+    {
+      "source": "func:spacenetra_model.py:evaluate_against_reference_mask",
+      "target": "file:spacenetra_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in spacenetra_model.py:375"
+    },
+    {
+      "source": "func:spacenetra_model.py:compute_threshold_sensitivity_diagnostic",
+      "target": "file:spacenetra_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in spacenetra_model.py:442"
+    },
+    {
+      "source": "func:spacenetra_model.py:verify_input_consistency_and_alignment",
+      "target": "file:spacenetra_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in spacenetra_model.py:469"
+    },
+    {
+      "source": "func:temp/app_backup.py:<module>",
+      "target": "file:temp/app_backup.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/app_backup.py:1"
+    },
+    {
+      "source": "func:temp/audit_images.py:is_procedural_synthetic",
+      "target": "file:temp/audit_images.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/audit_images.py:19"
+    },
+    {
+      "source": "func:temp/build_all_observations_pdf.py:generate_pdf",
+      "target": "file:temp/build_all_observations_pdf.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/build_all_observations_pdf.py:8"
+    },
+    {
+      "source": "func:temp/find_other_hashes.py:<module>",
+      "target": "file:temp/find_other_hashes.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/find_other_hashes.py:1"
+    },
+    {
+      "source": "func:temp/inspect_hotspots.py:<module>",
+      "target": "file:temp/inspect_hotspots.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/inspect_hotspots.py:1"
+    },
+    {
+      "source": "func:temp/make_test.py:create_minimal_pdf",
+      "target": "file:temp/make_test.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/make_test.py:3"
+    },
+    {
+      "source": "func:temp/match_hashes.py:<module>",
+      "target": "file:temp/match_hashes.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/match_hashes.py:1"
+    },
+    {
+      "source": "func:temp/pdf_builder.py:__init__",
+      "target": "file:temp/pdf_builder.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/pdf_builder.py:5"
+    },
+    {
+      "source": "func:temp/pdf_builder.py:_cmd",
+      "target": "file:temp/pdf_builder.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/pdf_builder.py:38"
+    },
+    {
+      "source": "func:temp/pdf_builder.py:_flush_page",
+      "target": "file:temp/pdf_builder.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/pdf_builder.py:41"
+    },
+    {
+      "source": "func:temp/pdf_builder.py:new_page",
+      "target": "file:temp/pdf_builder.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/pdf_builder.py:46"
+    },
+    {
+      "source": "func:temp/pdf_builder.py:_draw_header_footer",
+      "target": "file:temp/pdf_builder.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/pdf_builder.py:53"
+    },
+    {
+      "source": "func:temp/pdf_builder.py:check_space",
+      "target": "file:temp/pdf_builder.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/pdf_builder.py:84"
+    },
+    {
+      "source": "func:temp/pdf_builder.py:draw_cover",
+      "target": "file:temp/pdf_builder.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/pdf_builder.py:88"
+    },
+    {
+      "source": "func:temp/pdf_builder.py:add_h1",
+      "target": "file:temp/pdf_builder.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/pdf_builder.py:173"
+    },
+    {
+      "source": "func:temp/pdf_builder.py:add_h2",
+      "target": "file:temp/pdf_builder.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/pdf_builder.py:188"
+    },
+    {
+      "source": "func:temp/pdf_builder.py:add_h3",
+      "target": "file:temp/pdf_builder.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/pdf_builder.py:196"
+    },
+    {
+      "source": "func:temp/pdf_builder.py:add_p",
+      "target": "file:temp/pdf_builder.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/pdf_builder.py:202"
+    },
+    {
+      "source": "func:temp/pdf_builder.py:add_bullet",
+      "target": "file:temp/pdf_builder.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/pdf_builder.py:214"
+    },
+    {
+      "source": "func:temp/pdf_builder.py:add_callout",
+      "target": "file:temp/pdf_builder.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/pdf_builder.py:238"
+    },
+    {
+      "source": "func:temp/pdf_builder.py:add_table",
+      "target": "file:temp/pdf_builder.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/pdf_builder.py:258"
+    },
+    {
+      "source": "func:temp/pdf_builder.py:add_diagram_box",
+      "target": "file:temp/pdf_builder.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/pdf_builder.py:298"
+    },
+    {
+      "source": "func:temp/pdf_builder.py:_draw_text",
+      "target": "file:temp/pdf_builder.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/pdf_builder.py:312"
+    },
+    {
+      "source": "func:temp/pdf_builder.py:_draw_rect",
+      "target": "file:temp/pdf_builder.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/pdf_builder.py:319"
+    },
+    {
+      "source": "func:temp/pdf_builder.py:_wrap_text",
+      "target": "file:temp/pdf_builder.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/pdf_builder.py:332"
+    },
+    {
+      "source": "func:temp/pdf_builder.py:build",
+      "target": "file:temp/pdf_builder.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/pdf_builder.py:355"
+    },
+    {
+      "source": "func:temp/prefetch_all_hotspots.py:<module>",
+      "target": "file:temp/prefetch_all_hotspots.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/prefetch_all_hotspots.py:1"
+    },
+    {
+      "source": "func:temp/test_multipage.py:__init__",
+      "target": "file:temp/test_multipage.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/test_multipage.py:4"
+    },
+    {
+      "source": "func:temp/test_multipage.py:add_page",
+      "target": "file:temp/test_multipage.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/test_multipage.py:15"
+    },
+    {
+      "source": "func:temp/test_multipage.py:end_document",
+      "target": "file:temp/test_multipage.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/test_multipage.py:20"
+    },
+    {
+      "source": "func:temp/test_multipage.py:set_fill_color",
+      "target": "file:temp/test_multipage.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/test_multipage.py:25"
+    },
+    {
+      "source": "func:temp/test_multipage.py:set_stroke_color",
+      "target": "file:temp/test_multipage.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/test_multipage.py:28"
+    },
+    {
+      "source": "func:temp/test_multipage.py:set_line_width",
+      "target": "file:temp/test_multipage.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/test_multipage.py:31"
+    },
+    {
+      "source": "func:temp/test_multipage.py:rect",
+      "target": "file:temp/test_multipage.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/test_multipage.py:34"
+    },
+    {
+      "source": "func:temp/test_multipage.py:line",
+      "target": "file:temp/test_multipage.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/test_multipage.py:38"
+    },
+    {
+      "source": "func:temp/test_multipage.py:text",
+      "target": "file:temp/test_multipage.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/test_multipage.py:41"
+    },
+    {
+      "source": "func:temp/test_multipage.py:write",
+      "target": "file:temp/test_multipage.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/test_multipage.py:48"
+    },
+    {
+      "source": "func:temp/test_pyramid.py:test_pyramid",
+      "target": "file:temp/test_pyramid.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in temp/test_pyramid.py:11"
+    },
+    {
+      "source": "func:test_backend_services.py:run_tests",
+      "target": "file:test_backend_services.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_backend_services.py:11"
+    },
+    {
+      "source": "func:test_citywide_detection.py:test_citywide",
+      "target": "file:test_citywide_detection.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_citywide_detection.py:11"
+    },
+    {
+      "source": "func:test_ml_model.py:test_checkpoint_strict_loading",
+      "target": "file:test_ml_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_ml_model.py:27"
+    },
+    {
+      "source": "func:test_ml_model.py:test_preprocessing_compliance",
+      "target": "file:test_ml_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_ml_model.py:80"
+    },
+    {
+      "source": "func:test_ml_model.py:test_inference_and_dimensions",
+      "target": "file:test_ml_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_ml_model.py:116"
+    },
+    {
+      "source": "func:test_ml_model.py:test_threshold_responsiveness_and_slider",
+      "target": "file:test_ml_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_ml_model.py:147"
+    },
+    {
+      "source": "func:test_ml_model.py:test_model_switching_differentiation",
+      "target": "file:test_ml_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_ml_model.py:192"
+    },
+    {
+      "source": "func:test_ml_model.py:test_heatmap_generation",
+      "target": "file:test_ml_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_ml_model.py:221"
+    },
+    {
+      "source": "func:test_ml_model.py:test_optional_morphology_postprocessing",
+      "target": "file:test_ml_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_ml_model.py:237"
+    },
+    {
+      "source": "func:test_ml_model.py:test_reference_mask_pair_evaluation",
+      "target": "file:test_ml_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_ml_model.py:265"
+    },
+    {
+      "source": "func:test_ml_model.py:test_traditional_detection_and_semantic_search",
+      "target": "file:test_ml_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_ml_model.py:322"
+    },
+    {
+      "source": "func:test_ml_model.py:test_threshold_sensitivity_diagnostic_and_registration",
+      "target": "file:test_ml_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_ml_model.py:366"
+    },
+    {
+      "source": "func:test_ml_model.py:run_all_tests",
+      "target": "file:test_ml_model.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_ml_model.py:424"
+    },
+    {
+      "source": "func:test_provenance_safety.py:test_source_directory_integrity",
+      "target": "file:test_provenance_safety.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_provenance_safety.py:17"
+    },
+    {
+      "source": "func:test_provenance_safety.py:test_quarantine_directory_integrity",
+      "target": "file:test_provenance_safety.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_provenance_safety.py:37"
+    },
+    {
+      "source": "func:test_provenance_safety.py:test_live_acquisition_failure_safety",
+      "target": "file:test_provenance_safety.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_provenance_safety.py:57"
+    },
+    {
+      "source": "func:test_provenance_safety.py:test_explicit_synthetic_demo_mode",
+      "target": "file:test_provenance_safety.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_provenance_safety.py:95"
+    },
+    {
+      "source": "func:test_provenance_safety.py:test_satellite_loader_provenance",
+      "target": "file:test_provenance_safety.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_provenance_safety.py:116"
+    },
+    {
+      "source": "func:test_provenance_safety.py:test_provenance_manifest_honesty",
+      "target": "file:test_provenance_safety.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_provenance_safety.py:126"
+    },
+    {
+      "source": "func:test_provenance_safety.py:test_checkpoint_and_vector_db_intact",
+      "target": "file:test_provenance_safety.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_provenance_safety.py:141"
+    },
+    {
+      "source": "func:test_provenance_safety.py:run_all_provenance_tests",
+      "target": "file:test_provenance_safety.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_provenance_safety.py:163"
+    },
+    {
+      "source": "func:test_semantic_search.py:test_search",
+      "target": "file:test_semantic_search.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in test_semantic_search.py:7"
     }
   ],
   "metrics": {
-    "total_nodes": 12,
-    "total_edges": 8,
+    "total_nodes": 130,
+    "total_edges": 100,
     "code_to_db": {
       "total_access_calls": 0,
       "static_sql_count": 0,
