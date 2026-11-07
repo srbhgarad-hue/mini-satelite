@@ -52,11 +52,15 @@ def detect_new_buildings(img_t1_path, img_t3_path, gsd_m=2.24, min_area_sq_m=50.
     combined = cv2.addWeighted(ssim_diff_uint8, 0.65, edge_diff, 0.35, 0)
 
     # 4. Threshold & Morphological Reconstruction
-    _, thresh = cv2.threshold(combined, int(sensitivity), 255, cv2.THRESH_BINARY)
+    # Map sensitivity (30-100) into calibrated structural threshold range (110-185)
+    # to avoid whole-image flooding caused by global atmospheric/seasonal variations
+    thresh_val = int(85 + float(sensitivity) * 0.95)
+    thresh_val = max(100, min(220, thresh_val))
+    _, thresh = cv2.threshold(combined, thresh_val, 255, cv2.THRESH_BINARY)
     kernel = np.ones((3, 3), np.uint8)
-    # Morphological closing bridges building roof boundaries
-    closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=2)
-    dilated = cv2.dilate(closed, kernel, iterations=1)
+    # Morphological closing bridges building roof boundaries without flooding
+    closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=1)
+    dilated = closed
 
     # 5. Extract Contours & Apply Geometric Building Filter
     contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -64,11 +68,16 @@ def detect_new_buildings(img_t1_path, img_t3_path, gsd_m=2.24, min_area_sq_m=50.
     building_inventory = []
     annotated_img = img3.copy()
     b_id = 0
+    max_building_area_sq_m = 5000.0
+    max_pixels = int(max_building_area_sq_m / pixel_area_sq_m)
 
     for cnt in contours:
         area_px = cv2.contourArea(cnt)
-        if area_px >= min_pixels:
+        if min_pixels <= area_px <= max_pixels:
             x, y, w, h = cv2.boundingRect(cnt)
+            # Reject full-frame borders or global illumination shifts spanning across the tile
+            if w >= W - 15 or h >= H - 15 or area_px >= 0.40 * (H * W):
+                continue
             aspect_ratio = float(w) / float(max(1, h))
 
             # Geometric Building Filter:

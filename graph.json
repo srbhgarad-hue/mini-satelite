@@ -23,7 +23,7 @@
       "source_system": "python",
       "metadata": {
         "file": "app.py",
-        "lineno": 1146
+        "lineno": 1257
       }
     },
     {
@@ -371,7 +371,7 @@
       "source_system": "python",
       "metadata": {
         "file": "spacenetra_model.py",
-        "lineno": 83
+        "lineno": 123
       }
     },
     {
@@ -381,7 +381,7 @@
       "source_system": "python",
       "metadata": {
         "file": "spacenetra_model.py",
-        "lineno": 104
+        "lineno": 144
       }
     },
     {
@@ -391,7 +391,7 @@
       "source_system": "python",
       "metadata": {
         "file": "spacenetra_model.py",
-        "lineno": 129
+        "lineno": 169
       }
     },
     {
@@ -401,7 +401,7 @@
       "source_system": "python",
       "metadata": {
         "file": "spacenetra_model.py",
-        "lineno": 145
+        "lineno": 185
       }
     },
     {
@@ -411,7 +411,7 @@
       "source_system": "python",
       "metadata": {
         "file": "spacenetra_model.py",
-        "lineno": 223
+        "lineno": 289
       }
     },
     {
@@ -421,7 +421,7 @@
       "source_system": "python",
       "metadata": {
         "file": "spacenetra_model.py",
-        "lineno": 269
+        "lineno": 335
       }
     },
     {
@@ -431,7 +431,7 @@
       "source_system": "python",
       "metadata": {
         "file": "spacenetra_model.py",
-        "lineno": 279
+        "lineno": 345
       }
     },
     {
@@ -441,7 +441,7 @@
       "source_system": "python",
       "metadata": {
         "file": "spacenetra_model.py",
-        "lineno": 320
+        "lineno": 386
       }
     },
     {
@@ -451,7 +451,7 @@
       "source_system": "python",
       "metadata": {
         "file": "spacenetra_model.py",
-        "lineno": 345
+        "lineno": 411
       }
     },
     {
@@ -461,7 +461,7 @@
       "source_system": "python",
       "metadata": {
         "file": "spacenetra_model.py",
-        "lineno": 375
+        "lineno": 441
       }
     },
     {
@@ -471,7 +471,7 @@
       "source_system": "python",
       "metadata": {
         "file": "spacenetra_model.py",
-        "lineno": 442
+        "lineno": 508
       }
     },
     {
@@ -481,7 +481,7 @@
       "source_system": "python",
       "metadata": {
         "file": "spacenetra_model.py",
-        "lineno": 469
+        "lineno": 535
       }
     },
     {
@@ -985,7 +985,7 @@
       "source_system": "python",
       "metadata": {
         "file": "test_ml_model.py",
-        "lineno": 80
+        "lineno": 112
       }
     },
     {
@@ -995,7 +995,7 @@
       "source_system": "python",
       "metadata": {
         "file": "test_ml_model.py",
-        "lineno": 116
+        "lineno": 148
       }
     },
     {
@@ -1005,7 +1005,7 @@
       "source_system": "python",
       "metadata": {
         "file": "test_ml_model.py",
-        "lineno": 147
+        "lineno": 179
       }
     },
     {
@@ -1015,7 +1015,7 @@
       "source_system": "python",
       "metadata": {
         "file": "test_ml_model.py",
-        "lineno": 192
+        "lineno": 224
       }
     },
     {
@@ -1025,7 +1025,7 @@
       "source_system": "python",
       "metadata": {
         "file": "test_ml_model.py",
-        "lineno": 221
+        "lineno": 251
       }
     },
     {
@@ -1035,7 +1035,7 @@
       "source_system": "python",
       "metadata": {
         "file": "test_ml_model.py",
-        "lineno": 237
+        "lineno": 267
       }
     },
     {
@@ -1045,7 +1045,7 @@
       "source_system": "python",
       "metadata": {
         "file": "test_ml_model.py",
-        "lineno": 265
+        "lineno": 295
       }
     },
     {
@@ -1055,7 +1055,7 @@
       "source_system": "python",
       "metadata": {
         "file": "test_ml_model.py",
-        "lineno": 322
+        "lineno": 352
       }
     },
     {
@@ -1065,7 +1065,7 @@
       "source_system": "python",
       "metadata": {
         "file": "test_ml_model.py",
-        "lineno": 366
+        "lineno": 396
       }
     },
     {
@@ -1075,7 +1075,7 @@
       "source_system": "python",
       "metadata": {
         "file": "test_ml_model.py",
-        "lineno": 424
+        "lineno": 454
       }
     },
     {
@@ -1161,7 +1161,7 @@
       "source_system": "python",
       "metadata": {
         "file": "test_provenance_safety.py",
-        "lineno": 163
+        "lineno": 168
       }
     },
     {
@@ -1194,7 +1194,7 @@
       "target": "file:app.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in app.py:1146"
+      "evidence": "in app.py:1257"
     },
     {
       "source": "func:area_metrics.py:calculate_geospatial_metrics",
@@ -1383,84 +1383,84 @@
       "target": "file:spacenetra_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in spacenetra_model.py:83"
+      "evidence": "in spacenetra_model.py:123"
     },
     {
       "source": "func:spacenetra_model.py:__init__",
       "target": "file:spacenetra_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in spacenetra_model.py:104"
+      "evidence": "in spacenetra_model.py:144"
     },
     {
       "source": "func:spacenetra_model.py:forward",
       "target": "file:spacenetra_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in spacenetra_model.py:129"
+      "evidence": "in spacenetra_model.py:169"
     },
     {
       "source": "func:spacenetra_model.py:load_model",
       "target": "file:spacenetra_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in spacenetra_model.py:145"
+      "evidence": "in spacenetra_model.py:185"
     },
     {
       "source": "func:spacenetra_model.py:preprocess_pair",
       "target": "file:spacenetra_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in spacenetra_model.py:223"
+      "evidence": "in spacenetra_model.py:289"
     },
     {
       "source": "func:spacenetra_model.py:generate_probability_heatmap",
       "target": "file:spacenetra_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in spacenetra_model.py:269"
+      "evidence": "in spacenetra_model.py:335"
     },
     {
       "source": "func:spacenetra_model.py:apply_threshold_to_prob_map",
       "target": "file:spacenetra_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in spacenetra_model.py:279"
+      "evidence": "in spacenetra_model.py:345"
     },
     {
       "source": "func:spacenetra_model.py:predict_change",
       "target": "file:spacenetra_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in spacenetra_model.py:320"
+      "evidence": "in spacenetra_model.py:386"
     },
     {
       "source": "func:spacenetra_model.py:apply_optional_morphology",
       "target": "file:spacenetra_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in spacenetra_model.py:345"
+      "evidence": "in spacenetra_model.py:411"
     },
     {
       "source": "func:spacenetra_model.py:evaluate_against_reference_mask",
       "target": "file:spacenetra_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in spacenetra_model.py:375"
+      "evidence": "in spacenetra_model.py:441"
     },
     {
       "source": "func:spacenetra_model.py:compute_threshold_sensitivity_diagnostic",
       "target": "file:spacenetra_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in spacenetra_model.py:442"
+      "evidence": "in spacenetra_model.py:508"
     },
     {
       "source": "func:spacenetra_model.py:verify_input_consistency_and_alignment",
       "target": "file:spacenetra_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in spacenetra_model.py:469"
+      "evidence": "in spacenetra_model.py:535"
     },
     {
       "source": "func:temp/app_backup.py:<module>",
@@ -1754,70 +1754,70 @@
       "target": "file:test_ml_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in test_ml_model.py:80"
+      "evidence": "in test_ml_model.py:112"
     },
     {
       "source": "func:test_ml_model.py:test_inference_and_dimensions",
       "target": "file:test_ml_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in test_ml_model.py:116"
+      "evidence": "in test_ml_model.py:148"
     },
     {
       "source": "func:test_ml_model.py:test_threshold_responsiveness_and_slider",
       "target": "file:test_ml_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in test_ml_model.py:147"
+      "evidence": "in test_ml_model.py:179"
     },
     {
       "source": "func:test_ml_model.py:test_model_switching_differentiation",
       "target": "file:test_ml_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in test_ml_model.py:192"
+      "evidence": "in test_ml_model.py:224"
     },
     {
       "source": "func:test_ml_model.py:test_heatmap_generation",
       "target": "file:test_ml_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in test_ml_model.py:221"
+      "evidence": "in test_ml_model.py:251"
     },
     {
       "source": "func:test_ml_model.py:test_optional_morphology_postprocessing",
       "target": "file:test_ml_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in test_ml_model.py:237"
+      "evidence": "in test_ml_model.py:267"
     },
     {
       "source": "func:test_ml_model.py:test_reference_mask_pair_evaluation",
       "target": "file:test_ml_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in test_ml_model.py:265"
+      "evidence": "in test_ml_model.py:295"
     },
     {
       "source": "func:test_ml_model.py:test_traditional_detection_and_semantic_search",
       "target": "file:test_ml_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in test_ml_model.py:322"
+      "evidence": "in test_ml_model.py:352"
     },
     {
       "source": "func:test_ml_model.py:test_threshold_sensitivity_diagnostic_and_registration",
       "target": "file:test_ml_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in test_ml_model.py:366"
+      "evidence": "in test_ml_model.py:396"
     },
     {
       "source": "func:test_ml_model.py:run_all_tests",
       "target": "file:test_ml_model.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in test_ml_model.py:424"
+      "evidence": "in test_ml_model.py:454"
     },
     {
       "source": "func:test_provenance_safety.py:test_source_directory_integrity",
@@ -1873,7 +1873,7 @@
       "target": "file:test_provenance_safety.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in test_provenance_safety.py:163"
+      "evidence": "in test_provenance_safety.py:168"
     },
     {
       "source": "func:test_semantic_search.py:test_search",
