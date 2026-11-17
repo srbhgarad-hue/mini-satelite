@@ -7,23 +7,13 @@
       "source_system": "python"
     },
     {
-      "id": "func:app.py:get_cached_unet",
+      "id": "func:app.py:<module>",
       "type": "function",
-      "name": "get_cached_unet",
+      "name": "<module>",
       "source_system": "python",
       "metadata": {
         "file": "app.py",
-        "lineno": 709
-      }
-    },
-    {
-      "id": "func:app.py:load_clip_faiss",
-      "type": "function",
-      "name": "load_clip_faiss",
-      "source_system": "python",
-      "metadata": {
-        "file": "app.py",
-        "lineno": 1257
+        "lineno": 1
       }
     },
     {
@@ -1179,22 +1169,166 @@
         "file": "test_semantic_search.py",
         "lineno": 7
       }
+    },
+    {
+      "id": "file:views/ml_detection.py",
+      "type": "file",
+      "name": "views/ml_detection.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:views/ml_detection.py:get_cached_model",
+      "type": "function",
+      "name": "get_cached_model",
+      "source_system": "python",
+      "metadata": {
+        "file": "views/ml_detection.py",
+        "lineno": 23
+      }
+    },
+    {
+      "id": "func:views/ml_detection.py:render_ml_detection",
+      "type": "function",
+      "name": "render_ml_detection",
+      "source_system": "python",
+      "metadata": {
+        "file": "views/ml_detection.py",
+        "lineno": 27
+      }
+    },
+    {
+      "id": "file:views/optical_detection.py",
+      "type": "file",
+      "name": "views/optical_detection.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:views/optical_detection.py:render_optical_detection",
+      "type": "function",
+      "name": "render_optical_detection",
+      "source_system": "python",
+      "metadata": {
+        "file": "views/optical_detection.py",
+        "lineno": 21
+      }
+    },
+    {
+      "id": "file:views/overview.py",
+      "type": "file",
+      "name": "views/overview.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:views/overview.py:render_overview",
+      "type": "function",
+      "name": "render_overview",
+      "source_system": "python",
+      "metadata": {
+        "file": "views/overview.py",
+        "lineno": 12
+      }
+    },
+    {
+      "id": "table:the",
+      "type": "table",
+      "name": "the",
+      "source_system": "inferred_from_code",
+      "metadata": {
+        "inferred": true
+      }
+    },
+    {
+      "id": "file:views/semantic_search.py",
+      "type": "file",
+      "name": "views/semantic_search.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:views/semantic_search.py:load_clip_faiss",
+      "type": "function",
+      "name": "load_clip_faiss",
+      "source_system": "python",
+      "metadata": {
+        "file": "views/semantic_search.py",
+        "lineno": 20
+      }
+    },
+    {
+      "id": "func:views/semantic_search.py:render_semantic_search",
+      "type": "function",
+      "name": "render_semantic_search",
+      "source_system": "python",
+      "metadata": {
+        "file": "views/semantic_search.py",
+        "lineno": 32
+      }
+    },
+    {
+      "id": "file:views/sentinel2_analysis.py",
+      "type": "file",
+      "name": "views/sentinel2_analysis.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:views/sentinel2_analysis.py:render_sentinel2_analysis",
+      "type": "function",
+      "name": "render_sentinel2_analysis",
+      "source_system": "python",
+      "metadata": {
+        "file": "views/sentinel2_analysis.py",
+        "lineno": 19
+      }
+    },
+    {
+      "id": "file:views/theme.py",
+      "type": "file",
+      "name": "views/theme.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:views/theme.py:inject_theme_css",
+      "type": "function",
+      "name": "inject_theme_css",
+      "source_system": "python",
+      "metadata": {
+        "file": "views/theme.py",
+        "lineno": 11
+      }
+    },
+    {
+      "id": "func:views/theme.py:render_page_header",
+      "type": "function",
+      "name": "render_page_header",
+      "source_system": "python",
+      "metadata": {
+        "file": "views/theme.py",
+        "lineno": 170
+      }
+    },
+    {
+      "id": "file:views/__init__.py",
+      "type": "file",
+      "name": "views/__init__.py",
+      "source_system": "python"
+    },
+    {
+      "id": "func:views/__init__.py:<module>",
+      "type": "function",
+      "name": "<module>",
+      "source_system": "python",
+      "metadata": {
+        "file": "views/__init__.py",
+        "lineno": 1
+      }
     }
   ],
   "edges": [
     {
-      "source": "func:app.py:get_cached_unet",
+      "source": "func:app.py:<module>",
       "target": "file:app.py",
       "type": "structural_belongs_to",
       "confidence": 1,
-      "evidence": "in app.py:709"
-    },
-    {
-      "source": "func:app.py:load_clip_faiss",
-      "target": "file:app.py",
-      "type": "structural_belongs_to",
-      "confidence": 1,
-      "evidence": "in app.py:1257"
+      "evidence": "in app.py:1"
     },
     {
       "source": "func:area_metrics.py:calculate_geospatial_metrics",
@@ -1881,14 +2015,95 @@
       "type": "structural_belongs_to",
       "confidence": 1,
       "evidence": "in test_semantic_search.py:7"
+    },
+    {
+      "source": "func:views/ml_detection.py:get_cached_model",
+      "target": "file:views/ml_detection.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in views/ml_detection.py:23"
+    },
+    {
+      "source": "func:views/ml_detection.py:render_ml_detection",
+      "target": "file:views/ml_detection.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in views/ml_detection.py:27"
+    },
+    {
+      "source": "func:views/optical_detection.py:render_optical_detection",
+      "target": "file:views/optical_detection.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in views/optical_detection.py:21"
+    },
+    {
+      "source": "func:views/overview.py:render_overview",
+      "target": "file:views/overview.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in views/overview.py:12"
+    },
+    {
+      "source": "func:views/overview.py:render_overview",
+      "target": "table:the",
+      "type": "static_sql_string",
+      "confidence": 0.96,
+      "evidence": "Select a workflow from the left sidebar navigation to begin an analysis.",
+      "metadata": {
+        "file": "views/overview.py",
+        "lineno": 12
+      }
+    },
+    {
+      "source": "func:views/semantic_search.py:load_clip_faiss",
+      "target": "file:views/semantic_search.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in views/semantic_search.py:20"
+    },
+    {
+      "source": "func:views/semantic_search.py:render_semantic_search",
+      "target": "file:views/semantic_search.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in views/semantic_search.py:32"
+    },
+    {
+      "source": "func:views/sentinel2_analysis.py:render_sentinel2_analysis",
+      "target": "file:views/sentinel2_analysis.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in views/sentinel2_analysis.py:19"
+    },
+    {
+      "source": "func:views/theme.py:inject_theme_css",
+      "target": "file:views/theme.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in views/theme.py:11"
+    },
+    {
+      "source": "func:views/theme.py:render_page_header",
+      "target": "file:views/theme.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in views/theme.py:170"
+    },
+    {
+      "source": "func:views/__init__.py:<module>",
+      "target": "file:views/__init__.py",
+      "type": "structural_belongs_to",
+      "confidence": 1,
+      "evidence": "in views/__init__.py:1"
     }
   ],
   "metrics": {
-    "total_nodes": 130,
-    "total_edges": 100,
+    "total_nodes": 147,
+    "total_edges": 110,
     "code_to_db": {
-      "total_access_calls": 0,
-      "static_sql_count": 0,
+      "total_access_calls": 1,
+      "static_sql_count": 1,
       "orm_call_count": 0,
       "dynamic_unresolved_count": 0,
       "dynamic_unresolved_ratio": 0
